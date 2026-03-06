@@ -1,0 +1,75 @@
+{
+  "weapons": [
+    {"id": "arrow_single", "name": "Arrow, normal", "category": "weapons", "price": 2, "currency": "S", "damage": "1d4", "weapon_type": "ammo", "range": 0, "classes": ["fighter", "thief"]},
+    {"id": "arrow_dozen", "name": "Arrows, dozen", "category": "weapons", "price": 1, "currency": "G", "damage": "1d4", "weapon_type": "ammo", "range": 0, "classes": ["fighter", "thief"]},
+    {"id": "arrow_silver", "name": "Arrow, silver", "category": "weapons", "price": 1, "currency": "G", "damage": "1d4", "weapon_type": "ammo", "range": 0, "classes": ["fighter", "thief"]},
+    {"id": "axe_battle", "name": "Battle Axe", "category": "weapons", "price": 5, "currency": "G", "damage": "1d8", "weapon_type": "melee", "range": 0, "classes": ["fighter"]},
+    {"id": "axe_hand", "name": "Hand Axe", "category": "weapons", "price": 1, "currency": "G", "damage": "1d6", "weapon_type": "melee", "range": 10, "classes": ["fighter", "thief"]},
+    {"id": "dagger", "name": "Dagger", "category": "weapons", "price": 2, "currency": "G", "damage": "1d4", "weapon_type": "melee", "range": 10, "classes": ["fighter", "mage", "thief", "cleric"]},
+    {"id": "flail_footman", "name": "Footman's Flail", "category": "weapons", "price": 3, "currency": "G", "damage": "1d6+1", "weapon_type": "melee", "range": 0, "classes": ["fighter", "cleric"]},
+    {"id": "hammer", "name": "Hammer", "category": "weapons", "price": 1, "currency": "G", "damage": "1d4+1", "weapon_type": "melee", "range": 10, "classes": ["fighter", "cleric"]},
+    {"id": "mace_footman", "name": "Footman's Mace", "category": "weapons", "price": 8, "currency": "G", "damage": "1d6+1", "weapon_type": "melee", "range": 0, "classes": ["fighter", "cleric"]},
+    {"id": "morning_star", "name": "Morning Star", "category": "weapons", "price": 5, "currency": "G", "damage": "2d4", "weapon_type": "melee", "range": 0, "classes": ["fighter", "cleric"]},
+    {"id": "scimitar", "name": "Scimitar", "category": "weapons", "price": 15, "currency": "G", "damage": "1d8", "weapon_type": "melee", "range": 0, "classes": ["fighter", "thief"]},
+    {"id": "spear", "name": "Spear", "category": "weapons", "price": 1, "currency": "G", "damage": "1d6", "weapon_type": "melee", "range": 20, "classes": ["fighter", "thief"]},
+    {"id": "staff", "name": "Quarterstaff", "category": "weapons", "price": 0, "currency": "G", "damage": "1d6", "weapon_type": "melee", "range": 0, "classes": ["fighter", "mage", "cleric"]},
+    {"id": "sword_short", "name": "Short Sword", "category": "weapons", "price": 8, "currency": "G", "damage": "1d6", "weapon_type": "melee", "range": 0, "classes": ["fighter", "thief"]},
+    {"id": "sword_long", "name": "Long Sword", "category": "weapons", "price": 15, "currency": "G", "damage": "1d8", "weapon_type": "melee", "range": 0, "classes": ["fighter"]},
+    {"id": "sword_broad", "name": "Broad Sword", "category": "weapons", "price": 10, "currency": "G", "damage": "2d4", "weapon_type": "melee", "range": 0, "classes": ["fighter"]},
+    {"id": "sword_bastard", "name": "Bastard Sword", "category": "weapons", "price": 25, "currency": "G", "damage": "2d4", "weapon_type": "melee", "range": 0, "classes": ["fighter"]},
+    {"id": "sword_twohanded", "name": "Two-Handed Sword", "category": "weapons", "price": 30, "currency": "G", "damage": "1d10", "weapon_type": "melee", "range": 0, "classes": ["fighter"]},
+    {"id": "bow_short", "name": "Short Bow", "category": "weapons", "price": 15, "currency": "G", "damage": "1d6", "weapon_type": "ranged", "range": 50, "classes": ["fighter", "thief"]},
+    {"id": "bow_long", "name": "Long Bow", "category": "weapons", "price": 60, "currency": "G", "damage": "1d6", "weapon_type": "ranged", "range": 70, "classes": ["fighter"]},
+    {"id": "crossbow_light", "name": "Light Crossbow", "category": "weapons", "price": 12, "currency": "G", "damage": "1d4", "weapon_type": "ranged", "range": 60, "classes": ["fighter", "thief"]},
+    {"id": "sling", "name": "Sling", "category": "weapons", "price": 1, "currency": "S", "damage": "1d4", "weapon_type": "ranged", "range": 40, "classes": ["fighter", "thief", "cleric"]},
+    {"id": "halberd", "name": "Halberd", "category": "weapons", "price": 9, "currency": "G", "damage": "1d10", "weapon_type": "melee", "range": 0, "classes": ["fighter"]},
+    {"id": "trident", "name": "Trident", "category": "weapons", "price": 4, "currency": "G", "damage": "1d6+1", "weapon_type": "melee", "range": 10, "classes": ["fighter"]}
+  ],
+  "armor": [
+    {"id": "leather", "name": "Leather Armor", "category": "armor", "price": 5, "currency": "G", "ac_bonus": 2, "slot": "body", "classes": ["fighter", "thief", "cleric"]},
+    {"id": "padded", "name": "Padded Armor", "category": "armor", "price": 4, "currency": "G", "ac_bonus": 2, "slot": "body", "classes": ["fighter", "thief", "cleric"]},
+    {"id": "studded", "name": "Studded Leather", "category": "armor", "price": 15, "currency": "G", "ac_bonus": 3, "slot": "body", "classes": ["fighter", "thief", "cleric"]},
+    {"id": "ring", "name": "Ring Mail", "category": "armor", "price": 30, "currency": "G", "ac_bonus": 3, "slot": "body", "classes": ["fighter", "cleric"]},
+    {"id": "scale", "name": "Scale Mail", "category": "armor", "price": 45, "currency": "G", "ac_bonus": 4, "slot": "body", "classes": ["fighter", "cleric"]},
+    {"id": "chain", "name": "Chain Mail", "category": "armor", "price": 75, "currency": "G", "ac_bonus": 5, "slot": "body", "classes": ["fighter", "cleric"]},
+    {"id": "splinted", "name": "Splinted Mail", "category": "armor", "price": 80, "currency": "G", "ac_bonus": 6, "slot": "body", "classes": ["fighter"]},
+    {"id": "banded", "name": "Banded Mail", "category": "armor", "price": 90, "currency": "G", "ac_bonus": 6, "slot": "body", "classes": ["fighter"]},
+    {"id": "plate", "name": "Plate Mail", "category": "armor", "price": 400, "currency": "G", "ac_bonus": 7, "slot": "body", "classes": ["fighter"]},
+    {"id": "shield_small", "name": "Small Shield", "category": "armor", "price": 10, "currency": "G", "ac_bonus": 1, "slot": "shield", "classes": ["fighter", "cleric"]},
+    {"id": "shield_large", "name": "Large Shield", "category": "armor", "price": 15, "currency": "G", "ac_bonus": 1, "slot": "shield", "classes": ["fighter", "cleric"]},
+    {"id": "shield_wooden", "name": "Wooden Shield", "category": "armor", "price": 1, "currency": "G", "ac_bonus": 1, "slot": "shield", "classes": ["fighter", "cleric"]},
+    {"id": "helmet_small", "name": "Small Helmet", "category": "armor", "price": 10, "currency": "G", "ac_bonus": 0, "slot": "head", "classes": ["fighter", "cleric"]},
+    {"id": "helmet_great", "name": "Great Helmet", "category": "armor", "price": 15, "currency": "G", "ac_bonus": 1, "slot": "head", "classes": ["fighter"]}
+  ],
+  "clothing": [
+    {"id": "belt", "name": "Belt", "category": "clothing", "price": 3, "currency": "S"},
+    {"id": "boots_hard", "name": "Boots, hard", "category": "clothing", "price": 2, "currency": "G"},
+    {"id": "boots_soft", "name": "Boots, soft", "category": "clothing", "price": 1, "currency": "G"},
+    {"id": "cloak", "name": "Cloak", "category": "clothing", "price": 5, "currency": "S"},
+    {"id": "robe", "name": "Robe", "category": "clothing", "price": 6, "currency": "S"}
+  ],
+  "provisions": [
+    {"id": "rations_iron", "name": "Iron Rations (1 week)", "category": "provisions", "price": 5, "currency": "G"},
+    {"id": "rations_standard", "name": "Standard Rations (1 week)", "category": "provisions", "price": 3, "currency": "G"},
+    {"id": "torch", "name": "Torch", "category": "provisions", "price": 1, "currency": "C"},
+    {"id": "oil_flask", "name": "Oil Flask", "category": "provisions", "price": 1, "currency": "G"},
+    {"id": "ale_pint", "name": "Ale, pint", "category": "provisions", "price": 1, "currency": "S"}
+  ],
+  "misc": [
+    {"id": "backpack", "name": "Leather Backpack", "category": "misc", "price": 2, "currency": "G"},
+    {"id": "rope", "name": "Rope, 50'", "category": "misc", "price": 4, "currency": "S"},
+    {"id": "lantern", "name": "Hooded Lantern", "category": "misc", "price": 7, "currency": "G"},
+    {"id": "tinderbox", "name": "Tinder Box", "category": "misc", "price": 1, "currency": "G"},
+    {"id": "thieves_tools", "name": "Thieves' Tools", "category": "misc", "price": 30, "currency": "G"},
+    {"id": "holy_water", "name": "Holy Water, vial", "category": "misc", "price": 25, "currency": "G"},
+    {"id": "holy_symbol_wood", "name": "Holy Symbol, wooden", "category": "misc", "price": 7, "currency": "S"},
+    {"id": "spike_iron", "name": "Iron Spike", "category": "misc", "price": 1, "currency": "C"}
+  ],
+  "consumables": [
+    {"id": "bandages", "name": "Bandages", "category": "consumables", "price": 2, "currency": "G", "consumable": true, "heal_dice": "1d4"},
+    {"id": "potion_minor", "name": "Minor Healing Potion", "category": "consumables", "price": 5, "currency": "G", "consumable": true, "heal_dice": "1d4+1"},
+    {"id": "healing_herbs", "name": "Healing Herbs", "category": "consumables", "price": 8, "currency": "G", "consumable": true, "heal_dice": "1d6+2"},
+    {"id": "potion_healing", "name": "Healing Potion", "category": "consumables", "price": 15, "currency": "G", "consumable": true, "heal_dice": "2d4+2"},
+    {"id": "potion_greater", "name": "Greater Healing Potion", "category": "consumables", "price": 40, "currency": "G", "consumable": true, "heal_dice": "3d4+3"}
+  ]
+}

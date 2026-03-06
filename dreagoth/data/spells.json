@@ -1,0 +1,127 @@
+{
+  "spells": [
+    {
+      "id": "magic_missile",
+      "name": "Magic Missile",
+      "spell_class": "mage",
+      "level": 1,
+      "type": "combat_damage",
+      "damage": "1d4+1",
+      "description": "Bolts of magical energy strike the target"
+    },
+    {
+      "id": "shield",
+      "name": "Shield",
+      "spell_class": "mage",
+      "level": 1,
+      "type": "combat_buff",
+      "effect": "ac",
+      "value": 4,
+      "duration": null,
+      "description": "A magical barrier boosts your armor"
+    },
+    {
+      "id": "light",
+      "name": "Light",
+      "spell_class": "mage",
+      "level": 1,
+      "type": "utility",
+      "effect": "fov_extend",
+      "value": 4,
+      "duration": 50,
+      "description": "Magical light extends your vision"
+    },
+    {
+      "id": "detect_magic",
+      "name": "Detect Magic",
+      "spell_class": "mage",
+      "level": 2,
+      "type": "utility",
+      "effect": "detect_magic",
+      "value": 1,
+      "duration": 20,
+      "description": "Reveals magically locked doors and enchanted items"
+    },
+    {
+      "id": "fireball",
+      "name": "Fireball",
+      "spell_class": "mage",
+      "level": 3,
+      "type": "combat_damage",
+      "damage": "3d6",
+      "description": "A devastating ball of fire engulfs the enemy"
+    },
+    {
+      "id": "knock",
+      "name": "Knock",
+      "spell_class": "mage",
+      "level": 2,
+      "type": "utility",
+      "effect": "unlock",
+      "value": 1,
+      "duration": null,
+      "description": "Magically unlocks a door"
+    },
+    {
+      "id": "cure_wounds",
+      "name": "Cure Wounds",
+      "spell_class": "cleric",
+      "level": 1,
+      "type": "combat_heal",
+      "heal": "1d8+1",
+      "description": "Divine energy heals your wounds"
+    },
+    {
+      "id": "bless",
+      "name": "Bless",
+      "spell_class": "cleric",
+      "level": 1,
+      "type": "combat_buff",
+      "effect": "attack",
+      "value": 2,
+      "duration": null,
+      "description": "Divine favor guides your strikes"
+    },
+    {
+      "id": "turn_undead",
+      "name": "Turn Undead",
+      "spell_class": "cleric",
+      "level": 1,
+      "type": "combat_damage",
+      "damage": "2d6",
+      "undead_only": true,
+      "description": "Holy power smites undead creatures"
+    },
+    {
+      "id": "heal",
+      "name": "Heal",
+      "spell_class": "cleric",
+      "level": 2,
+      "type": "combat_heal",
+      "heal": "2d8+3",
+      "description": "Powerful healing restores body and spirit"
+    },
+    {
+      "id": "sanctuary",
+      "name": "Sanctuary",
+      "spell_class": "cleric",
+      "level": 2,
+      "type": "combat_buff",
+      "effect": "flee",
+      "value": 5,
+      "duration": null,
+      "description": "Divine protection aids your escape"
+    },
+    {
+      "id": "dispel_magic",
+      "name": "Dispel Magic",
+      "spell_class": "cleric",
+      "level": 3,
+      "type": "utility",
+      "effect": "unlock",
+      "value": 1,
+      "duration": null,
+      "description": "Removes magical enchantments and locks"
+    }
+  ]
+}

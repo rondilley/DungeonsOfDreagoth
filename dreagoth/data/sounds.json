@@ -1,0 +1,23 @@
+{
+    "footstep": "footstep.wav",
+    "room_enter": "room_enter.wav",
+    "combat_start": "combat_start.wav",
+    "combat_hit": "combat_hit.wav",
+    "combat_miss": "combat_miss.wav",
+    "combat_crit": "combat_crit.wav",
+    "monster_kill": "monster_kill.wav",
+    "player_death": "player_death.wav",
+    "level_up": "level_up.wav",
+    "pickup_item": "pickup_item.wav",
+    "pickup_gold": "pickup_gold.wav",
+    "stairs_descend": "stairs_descend.wav",
+    "stairs_ascend": "stairs_ascend.wav",
+    "door_open": "door_open.wav",
+    "door_locked": "door_locked.wav",
+    "spell_cast": "spell_cast.wav",
+    "quest_complete": "quest_complete.wav",
+    "npc_talk": "npc_talk.wav",
+    "ui_error": "ui_error.wav",
+    "use_item": "pickup_item.wav",
+    "player_resurrect": "magic_buff.wav"
+}

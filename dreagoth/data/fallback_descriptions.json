@@ -1,0 +1,82 @@
+{
+  "room_enter": [
+    "You enter a dim chamber. The air is thick with dust.",
+    "A cold draft flows through this room. Shadows dance on the walls.",
+    "This room smells of damp stone. Water drips from the ceiling.",
+    "Cobwebs hang from the corners of this ancient chamber.",
+    "The walls here are scarred with claw marks. Something lived here once.",
+    "Faded murals cover the walls, too damaged to make out clearly.",
+    "A faint glow emanates from moss growing in the cracks.",
+    "This chamber echoes with every footstep you take.",
+    "Broken furniture litters the floor of this abandoned room.",
+    "The stone floor is worn smooth by centuries of passing feet."
+  ],
+  "combat_start": [
+    "The creature lunges from the shadows!",
+    "You hear a guttural snarl as the beast charges!",
+    "Red eyes gleam in the darkness as the monster attacks!",
+    "The creature hisses and bares its fangs!",
+    "A shadow separates itself from the wall and strikes!"
+  ],
+  "combat_kill": [
+    "The creature crumples to the ground, defeated.",
+    "With a final strike, the beast falls silent.",
+    "The monster collapses in a heap.",
+    "Your foe falls, vanquished by your blade.",
+    "The creature lets out a death rattle and is still."
+  ],
+  "combat_crit": [
+    "A devastating blow! The strike finds its mark perfectly!",
+    "You feel the impact reverberate through your weapon!",
+    "A masterful strike! The creature reels from the blow!",
+    "The blow lands with tremendous force!"
+  ],
+  "level_theme": [
+    "The darkness deepens as you descend further into the dungeon.",
+    "These passages feel older, more dangerous than the levels above.",
+    "Strange sounds echo from the depths below.",
+    "The air grows colder with each level descended.",
+    "The walls here are carved with ancient, unsettling runes."
+  ],
+  "treasure_find": [
+    "Something glints among the debris.",
+    "You spot something of value.",
+    "A cache of goods lies before you.",
+    "You discover hidden valuables."
+  ],
+  "stairs_down": [
+    "Worn stone steps spiral downward into darkness.",
+    "A stairway descends into the unknown depths below.",
+    "You peer down the stairs. Cold air rises from below."
+  ],
+  "stairs_up": [
+    "Stone stairs lead upward toward lighter air.",
+    "A stairway rises toward the levels above.",
+    "The passage leads up. A faint draft carries from above."
+  ],
+  "npc_dialogue": [
+    "\"Careful, adventurer. These halls hold many dangers.\"",
+    "\"I've been down here longer than I care to remember.\"",
+    "\"Watch your step. Not everything is as it seems.\"",
+    "\"Another soul braving the depths? You have my respect.\"",
+    "\"The deeper you go, the worse it gets. Trust me.\""
+  ],
+  "npc_merchant": [
+    "\"Care to browse my wares? Fair prices, I assure you.\"",
+    "\"I've got just what an adventurer needs. Take a look.\"",
+    "\"Buy, sell, or trade — I'm open for business.\"",
+    "\"Step right up! Quality goods at reasonable prices.\""
+  ],
+  "quest_offer": [
+    "\"I have a task that needs doing. Interested?\"",
+    "\"There's a job that could use someone with your skills.\"",
+    "\"I could use your help with something, if you're willing.\"",
+    "\"I have a proposition for a brave adventurer like yourself.\""
+  ],
+  "quest_complete": [
+    "\"Well done! You've earned your reward.\"",
+    "\"Excellent work! Here's what I promised.\"",
+    "\"You've proven yourself capable. Take this with my thanks.\"",
+    "\"The task is done. You have my gratitude.\""
+  ]
+}

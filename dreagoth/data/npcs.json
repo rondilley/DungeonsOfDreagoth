@@ -1,0 +1,100 @@
+{
+  "npcs": [
+    {
+      "id": "merchant_arms",
+      "name": "Grimjaw the Weaponsmith",
+      "role": "merchant",
+      "personality": "gruff but fair, respects warriors",
+      "min_level": 1,
+      "max_level": 10,
+      "symbol": "P",
+      "color": "bright_green",
+      "inventory_tier": "weapons",
+      "dialogue_tags": ["trade", "weapons", "combat"]
+    },
+    {
+      "id": "merchant_provisions",
+      "name": "Old Marta",
+      "role": "merchant",
+      "personality": "kindly grandmother, worries about adventurers",
+      "min_level": 1,
+      "max_level": 10,
+      "symbol": "P",
+      "color": "bright_green",
+      "inventory_tier": "provisions",
+      "dialogue_tags": ["trade", "supplies", "safety"]
+    },
+    {
+      "id": "merchant_magic",
+      "name": "Zephyrus the Enchanter",
+      "role": "merchant",
+      "personality": "mysterious, speaks in riddles",
+      "min_level": 3,
+      "max_level": 10,
+      "symbol": "P",
+      "color": "bright_magenta",
+      "inventory_tier": "magic",
+      "dialogue_tags": ["trade", "magic", "enchantment"]
+    },
+    {
+      "id": "quest_bounty",
+      "name": "Captain Aldric",
+      "role": "quest_giver",
+      "personality": "stern military commander, no-nonsense",
+      "min_level": 1,
+      "max_level": 8,
+      "symbol": "P",
+      "color": "bright_yellow",
+      "inventory_tier": null,
+      "dialogue_tags": ["quest", "bounty", "monsters"]
+    },
+    {
+      "id": "quest_collector",
+      "name": "Lyra the Antiquarian",
+      "role": "quest_giver",
+      "personality": "enthusiastic scholar, obsessed with relics",
+      "min_level": 2,
+      "max_level": 10,
+      "symbol": "P",
+      "color": "bright_yellow",
+      "inventory_tier": null,
+      "dialogue_tags": ["quest", "artifacts", "history"]
+    },
+    {
+      "id": "sage",
+      "name": "Theron the Sage",
+      "role": "sage",
+      "personality": "wise and cryptic, knows dungeon lore",
+      "min_level": 1,
+      "max_level": 10,
+      "symbol": "P",
+      "color": "bright_cyan",
+      "inventory_tier": null,
+      "dialogue_tags": ["lore", "knowledge", "warning"]
+    },
+    {
+      "id": "wanderer_1",
+      "name": "Kael the Lost",
+      "role": "wanderer",
+      "personality": "nervous adventurer, lost and scared",
+      "min_level": 1,
+      "max_level": 5,
+      "symbol": "P",
+      "color": "white",
+      "inventory_tier": null,
+      "dialogue_tags": ["lost", "fear", "dungeon"]
+    },
+    {
+      "id": "wanderer_2",
+      "name": "Sera Blackthorn",
+      "role": "wanderer",
+      "personality": "tough veteran, dark humor, seen too much",
+      "min_level": 4,
+      "max_level": 10,
+      "symbol": "P",
+      "color": "white",
+      "inventory_tier": null,
+      "dialogue_tags": ["veteran", "danger", "survival"]
+    }
+  ]
+}
