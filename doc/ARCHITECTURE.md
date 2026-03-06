@@ -4,30 +4,34 @@ Technical architecture for Dungeons of Dreagoth II.
 
 ## System Overview
 
-```
-                         +-------------------+
-                         |    DreagothApp    |  Textual App — game loop, input
-                         +--------+----------+
-                                  |
-          +-----------+-----------+-----------+-----------+
-          |           |           |           |           |
-    +-----+----+ +----+----+ +---+----+ +----+----+ +----+----+
-    | GameState | |Generator| |EventBus| |   DM    | | Combat  |
-    +-----+----+ +----+----+ +--------+ +----+----+ | Engine  |
-          |            |                      |      +----+----+
-    +-----+----+ +----+----+           +-----+----+      |
-    | Character | | Populat.| cache    | AIClient |  +---+----+
-    | Inventory | +----+----+ -first-> | (Claude) |  | Monster |
-    +-----+----+      |      |        +----------+  +---+----+
-          |      +----+----+ |  +----------+             |
-    +-----+----+ | Dungeon | +->| AICache  |       +-----+----+
-    |  Items   | |  Level  |    | (SQLite) |       | MonsterDB|
-    |EquipDB(56| | (numpy) | +->+----------+       |  (14)    |
-    +----------+ +----+----+ |  +----------+       +----------+
-                      |      +--| Fallback |
-                 +----+----+    +----------+
-                 |   FOV   |
-                 +----------+
+```mermaid
+graph TD
+    App[DreagothApp<br/>Textual App — game loop, input]
+
+    App --> GS[GameState]
+    App --> Gen[Generator]
+    App --> EB[EventBus]
+    App --> DM[DungeonMaster]
+    App --> CE[CombatEngine]
+
+    GS --> Char[Character<br/>Inventory]
+    GS --> SL[Save/Load<br/>JSON, 5 slots]
+    Char --> Items[Items<br/>EquipmentDB 61]
+
+    Gen --> Pop[Populator]
+    Pop --> DL[DungeonLevel<br/>numpy 80x40]
+    Pop --> NPCs[NPC DB 8]
+    DL --> FOV[FOV<br/>Shadowcasting]
+
+    DM -->|cache-first| AIC[AIClient<br/>Claude Sonnet]
+    DM -->|cache hit| Cache[AICache<br/>SQLite]
+    DM -->|API fail| FB[Fallback<br/>Templates]
+
+    CE --> Mon[Monster<br/>MonsterDB 14]
+    CE --> Spells[SpellDB 12<br/>Mage + Cleric]
+    CE --> Quests[QuestLog<br/>Kill / Explore]
+
+    App --> Audio[SoundManager<br/>Event-driven]
 ```
 
 ## Core Modules
@@ -51,6 +55,12 @@ Central state dataclass. Fields:
 ### `core/dice.py`
 Standard D&D dice: `d4` through `d100`, plus `ability_roll()` (4d6 drop lowest).
 
+### `core/save_load.py`
+JSON serialization to `saves/` directory. 5 manual slots + autosave (slot 0). Items stored by ID (not value) to keep saves small and auto-apply balance changes. Version field for future migration.
+
+### `core/command_parser.py`
+21 commands with aliases and tab completion. Vi-style `:` activates input mode in CommandBar.
+
 ## Dungeon Generation
 
 ### Tile System (`dungeon/tiles.py`)
@@ -67,9 +77,7 @@ Preserves the original 1991 QBasic hex encoding as a Python `IntEnum`:
                          0x13  SPECIAL
 ```
 
-Door flags (OR'd): `0x80` = locked, `0x40` = magically locked.
-
-Helper sets `WALKABLE_TILES` and `TRANSPARENT_TILES` used for movement and FOV checks.
+Door flags (OR'd): `0x80` = locked, `0x40` = magically locked. Helpers: `is_door()`, `is_locked()`, `is_magically_locked()`, `unlock_door()`, `base_tile()`. Flag-aware `is_walkable()` / `is_transparent()`.
 
 ### Grid Storage (`dungeon/dungeon_level.py`)
 
@@ -79,10 +87,14 @@ Each level is an 80x40 `numpy.uint8` array stored as `grid[y, x]` (row-major). T
 
 Ported from `Old_Code/DUNGEON.TXT` with improvements:
 
-1. **Initialize** — fill grid with `WALL` (0xFF)
-2. **Place rooms** — up to 25 per level. Random position/size, collision detection with 1-tile buffer, retry up to 500 times per room. Room interiors set to `ROOM` (0x14)
-3. **Connect rooms** — Prim's MST on room centers (Manhattan distance). For each MST edge, carve an L-shaped corridor (randomly horizontal-first or vertical-first). Only overwrites `WALL` tiles
-4. **Place stairs** — pick two random distinct rooms, place `STAIRS_UP`/`STAIRS_DOWN` at their centers
+```mermaid
+flowchart TD
+    A[Initialize grid with WALL 0xFF] --> B[Place rooms]
+    B -->|up to 25 per level<br/>random pos/size<br/>collision detect w/ 1-tile buffer| C[Connect rooms via Prim's MST]
+    C -->|Manhattan distance<br/>L-shaped corridors| D[Place stairs]
+    D -->|two random distinct rooms<br/>STAIRS_UP / STAIRS_DOWN| E[Place doors]
+    E -->|between rooms and corridors<br/>locked / magically locked| F[Level complete]
+```
 
 **Key improvement over original:** The 1991 code only connected up/down stairs with a DFS path, leaving most rooms unreachable. MST guarantees full connectivity.
 
@@ -96,19 +108,19 @@ Recursive 8-octant shadowcasting algorithm (RogueBasin reference). Uses octant c
 
 Key detail: slopes use `dy = -j` (negative depth convention). The algorithm tracks start/end slopes per scan row, recursing when walls create shadow boundaries.
 
-Returns a `set[tuple[int, int]]` of visible positions. The app merges this into a persistent `revealed` set for fog-of-war.
+Returns a `set[tuple[int, int]]` of visible positions. The app merges this into a persistent `revealed` set for fog-of-war. Radius extended by Light spell buff.
 
 ### Dungeon Populator (`dungeon/populator.py`)
 
-After a level is generated, `populate_level()` fills it with monsters and treasure:
+After a level is generated, `populate_level()` fills it with monsters, treasure, and NPCs (1-3 per level):
 - Each non-stair room has a 50%+ chance of a monster (scales with depth)
 - 30% chance of gold in each room, plus a chance for equipment drops
-- Returns a `LevelEntities` dataclass with `monster_at(x, y)` for collision lookup
+- Returns a `LevelEntities` dataclass with `monster_at(x, y)` / `npc_at(x, y)` for collision lookup
 - Stair rooms are kept empty as safe zones
 
 ## Character System
 
-### Character (`character/character.py`, 217 lines)
+### Character (`character/character.py`)
 
 Core player data and mechanics:
 
@@ -119,55 +131,77 @@ Core player data and mechanics:
 - **Attack bonus** — level * class multiplier + str_mod
 - **Equipment slots** — weapon, armor (body), shield. Class restrictions enforced on equip
 - **Leveling** — 10-level XP table. Level-up adds hit die + CON mod to max HP
+- **Spell slots** — 3-level slot progression for Mage and Cleric classes
 
-`create_character(name, class, race)` rolls a complete character with starting gold (3d6 * 10). The `CharacterCreationScreen` modal in `app.py` also assigns starting equipment per class.
+`create_character(name, class, race)` rolls a complete character with starting gold (3d6 * 10). The `CharacterCreationScreen` modal also assigns starting equipment per class.
 
-### Items and Equipment (`entities/item.py`, 120 lines)
+### Items and Equipment (`entities/item.py`)
 
-- **`Item` dataclass** — id, name, category, price/currency, damage dice (weapons), AC bonus (armor), slot, class restrictions
-- **`EquipmentDB` singleton** — loads `data/equipment.json` (56 items: 24 weapons, 14 armor, 5 clothing, 5 provisions, 8 misc)
+- **`Item` dataclass** — id, name, category, price/currency, damage dice (weapons), AC bonus (armor), slot, class restrictions, consumable/heal_dice fields
+- **`EquipmentDB` singleton** — loads `data/equipment.json` (61 items: weapons, armor, clothing, provisions, misc, 5 consumable healing items)
 - **`parse_dice()` / `roll_dice()`** — parses "2d6+1" format strings and rolls them
 - **`random_treasure(tier)`** — generates loot appropriate to dungeon depth
+- **`for_merchant_tier()`** — filters items appropriate for NPC shops
 - Gold values normalized across currencies (G=gold, S=silver/10, C=copper/100)
 
 ## Combat System
 
-### Combat Engine (`combat/combat_engine.py`, 157 lines)
+### Combat Engine (`combat/combat_engine.py`)
 
 Turn-based D&D-style combat:
 
+```mermaid
+flowchart TD
+    Start([Monster bump or<br/>corridor encounter]) --> Init[Roll initiative<br/>d20 + dex_mod vs d20]
+    Init -->|Monster wins| MonFirst[Monster gets free attack]
+    Init -->|Player wins| Choice
+
+    MonFirst --> Choice{Player chooses}
+
+    Choice -->|F — Attack| Atk[Roll d20 + attack_bonus]
+    Choice -->|R — Flee| Flee[Roll d20 + dex_mod vs DC 10]
+    Choice -->|C — Cast| Cast[Select and cast spell]
+
+    Atk -->|Nat 20| Crit[CRITICAL HIT — 2x damage]
+    Atk -->|Nat 1| Fumble[FUMBLE — auto miss]
+    Atk -->|Roll >= AC| Hit[Hit — roll damage + str_mod]
+    Atk -->|Roll < AC| Miss[Miss]
+
+    Crit --> CheckMon{Monster HP <= 0?}
+    Hit --> CheckMon
+    Fumble --> MonAtk
+    Miss --> MonAtk
+
+    CheckMon -->|Yes| Win([PLAYER_WIN<br/>XP + loot])
+    CheckMon -->|No| MonAtk[Monster attacks<br/>d20 + atk vs player AC]
+
+    MonAtk --> Special{Special ability?}
+    Special -->|30% poison| Poison[Poison damage]
+    Special -->|20% paralyze| Para[Paralyze]
+    Special -->|15% drain| Drain[Level drain]
+    Special -->|regen| Regen[Monster regenerates HP]
+    Special -->|No| CheckPlayer
+
+    Poison --> CheckPlayer{Player HP <= 0?}
+    Para --> CheckPlayer
+    Drain --> CheckPlayer
+    Regen --> CheckPlayer
+
+    CheckPlayer -->|Yes| Dead([PLAYER_DEAD<br/>Resurrection or game over])
+    CheckPlayer -->|No| Choice
+
+    Flee -->|Success| Fled([PLAYER_FLED<br/>Combat ends])
+    Flee -->|Fail| MonAtk
+    Cast --> CheckMon
 ```
-Combat Start:
-  Roll initiative: d20 + dex_mod (player) vs d20 (monster)
-  Higher goes first. If monster wins, it gets a free attack.
 
-Each Round:
-  Player chooses: Attack (F) or Flee (R)
+**Resurrection:** On death, if the player has gold, resurrection costs `min(100*level, gold//10)`. Equipment is dropped at the death position as a treasure pile. Player respawns at stairs_up with half HP. 0 gold = permanent death.
 
-  Attack:
-    Roll d20 + attack_bonus
-    Natural 20 = CRITICAL HIT (2x damage)
-    Natural 1 = FUMBLE (auto-miss)
-    If roll >= monster AC → hit, roll damage dice + str_mod
-    If monster HP <= 0 → PLAYER_WIN
-
-  Flee:
-    Roll d20 + dex_mod vs DC 10
-    Success → PLAYER_FLED (combat ends)
-    Failure → monster gets free attack
-
-  Monster Attack:
-    Roll d20 + attack_bonus vs player AC
-    Same crit/fumble rules
-    Special abilities (30% poison, 20% paralyze, 15% drain)
-    If player HP <= 0 → PLAYER_DEAD
-```
-
-**`CombatState`** tracks the full fight: player, monster, round counter, result enum, and a combat log of styled text entries. The app flushes log entries to the narrative panel after each action.
+**`CombatState`** tracks the full fight: player, monster, round counter, result enum, and a combat log of styled text entries.
 
 **`CombatResult`** enum: `ONGOING`, `PLAYER_WIN`, `PLAYER_FLED`, `PLAYER_DEAD`.
 
-### Monsters (`entities/monster.py`, 103 lines)
+### Monsters (`entities/monster.py`)
 
 - **`MonsterTemplate`** — static stats from `data/monsters.json`
 - **`Monster`** — live instance with HP, position, damage. Created via `MonsterDB.spawn()`
@@ -192,6 +226,32 @@ Each Round:
 
 Each monster has a unique single-character symbol and color for the map display.
 
+### Spells (`combat/spells.py`)
+
+- **`SpellDB` singleton** — loads `data/spells.json` (12 spells: 6 mage, 6 cleric)
+- **`SpellSlots`** — 3-level slot progression, restored on stair rest
+- **`ActiveBuff`** — time-limited combat/utility buffs (e.g., Light extends FOV radius)
+- `player_cast()` handles spell combat integration
+
+## NPCs and Quests
+
+### NPCs (`entities/npc.py`)
+
+- **`NPCDB` singleton** — loads `data/npcs.json` (8 templates: 3 merchants, 2 quest givers, 1 sage, 2 wanderers)
+- **`NPC`** — tracks position, `talked_to`, `quest_id`
+- AI DM generates dialogue; fallback templates for offline play
+
+### Merchants
+
+OptionList-based merchant screen for buying/selling. Items filtered by `for_merchant_tier()` based on dungeon depth.
+
+### Quests (`quest/quest.py`)
+
+- **`QuestType`** — `KILL_MONSTERS`, `EXPLORE_DEPTH`
+- **`QuestLog`** — progress tracking with completion checks
+- `generate_quest()` creates depth-appropriate random quests
+- AI DM narrates quest offers and completions
+
 ## AI Dungeon Master
 
 ### Design Principles
@@ -201,36 +261,49 @@ Each monster has a unique single-character symbol and color for the map display.
 
 ### Architecture
 
+```mermaid
+flowchart LR
+    Event[Game Event<br/>room / combat / kill<br/>level / treasure / NPC] --> DM[DungeonMaster]
+
+    DM --> Cache{AICache<br/>SQLite<br/>SHA-256 key}
+    Cache -->|HIT| Return[Return cached text]
+    Cache -->|MISS| API[AIClient<br/>Claude Sonnet]
+    API -->|SUCCESS| Store[Cache result + return]
+    API -->|FAIL| FB[Fallback<br/>random template from JSON]
+    FB --> Return
+    Store --> Return
 ```
-DungeonMaster.describe_room(depth, room_id, size)
-    │
-    ├─ 1. Check AICache (SQLite, keyed by SHA-256 of content_type:context)
-    │     └─ HIT → return cached text
-    │
-    ├─ 2. Try AIClient (Anthropic SDK, Claude Sonnet)
-    │     ├─ SUCCESS → cache result, return text
-    │     └─ FAIL → fall through
-    │
-    └─ 3. get_fallback(category) → random template from JSON
-```
+
+### Prefetch
+
+`_prefetched_depths` set prevents redundant API calls on revisited levels. When descending, prefetch blocks movement with a loading notice until complete.
 
 ### Modules
 
-**`ai/client.py`** (79 lines) — Wraps Anthropic SDK. Reads API key from `claude.key.txt` (project root) or `ANTHROPIC_API_KEY` env var. Tracks input/output tokens for cost estimation. Uses Claude Sonnet for speed and cost (~$0.15-0.50 per full playthrough).
+**`ai/client.py`** — Wraps Anthropic SDK. Reads API key from `claude.key.txt` (project root) or `ANTHROPIC_API_KEY` env var. Tracks input/output tokens for cost estimation. Uses Claude Sonnet for speed and cost.
 
-**`ai/cache.py`** (52 lines) — SQLite database at `saves/ai_cache.db`. Keys are `"{content_type}:{sha256_hash}"`. Content types: `room_enter`, `combat_start`, `combat_kill`, `combat_crit`, `level_theme`, `treasure_find`.
+**`ai/cache.py`** — SQLite database at `saves/ai_cache.db`. Keys are `"{content_type}:{sha256_hash}"`. Content types: `room_enter`, `combat_start`, `combat_kill`, `combat_crit`, `level_theme`, `treasure_find`.
 
-**`ai/fallback.py`** (30 lines) — Loads `data/fallback_descriptions.json` and returns random entries per category. Lazy-loaded on first call.
+**`ai/fallback.py`** — Loads `data/fallback_descriptions.json` and returns random entries per category. Lazy-loaded on first call.
 
-**`ai/dm.py`** (151 lines) — `DungeonMaster` singleton orchestrates all AI narration:
+**`ai/dm.py`** — `DungeonMaster` singleton orchestrates all AI narration:
 - `describe_room()` — triggered on first visit to each room
 - `narrate_combat_start()` — when bumping into a monster
 - `narrate_kill()` — on monster death (includes weapon name)
 - `narrate_crit()` — on critical hits
 - `describe_level_theme()` — when descending to a new level
 - `describe_treasure()` — when picking up loot
+- NPC dialogue — AI-generated conversation with personality
 
 All methods share the same system prompt establishing tone (dark fantasy, second person, 1-3 sentences, no emojis).
+
+## Audio System
+
+### Sound Manager (`audio/sound_manager.py`)
+
+Event-driven singleton connected via the event bus. Fallback chain: playsound3 → winsound → bell → silent.
+
+**`audio/tone_generator.py`** — creates 19 retro WAV files using stdlib only. Config in `data/sounds.json` (21 event-to-sound mappings). Optional `[audio]` pip extra for playsound3.
 
 ## UI Architecture
 
@@ -238,55 +311,38 @@ Built on [Textual](https://textual.textualize.io/), a Python TUI framework built
 
 ### Layout
 
-```
-+--------------------------------------------------+--------------------+
-|                   MapPanel                        |    StatsPanel      |
-|                  (1fr width)                      |   (26 cols wide)   |
-|                                                   |                    |
-|  @ player (bright yellow)                         |  Name, L#, race,   |
-|  r/g/k/s monsters (colored symbols)              |  class              |
-|  $ treasure (bright yellow)                       |  HP bar (colored)   |
-|  . rooms, , corridors (grey shades)              |  STR DEX CON        |
-|  ▲▼ stairs (bright cyan)                         |  INT WIS CHA        |
-|  dim = previously seen, blank = unexplored        |  AC, Atk bonus      |
-|                                                   |  Weapon, Armor      |
-|                                                   |  Gold, XP           |
-|                                                   |  Pack item count    |
-|                                                   |  [COMBAT indicator] |
-+--------------------------------------------------+--------------------+
-|                     LogPanel (10 rows)                                 |
-|  AI room descriptions (italic grey)                                   |
-|  Combat narration (red/green/yellow)                                  |
-|  Item pickups (yellow), level changes (cyan)                          |
-+----------------------------------------------------------------------+
-| CommandBar (1 row, docked bottom) — level, turn, position             |
-+----------------------------------------------------------------------+
-```
+```mermaid
+block-beta
+    columns 5
 
-### Key Bindings
+    Map["MapPanel / FirstPersonPanel<br/>(Tab toggles)<br/>1fr width"]:3
+    Stats["StatsPanel<br/>26 cols<br/>Name, HP bar, stats,<br/>AC, equipment, gold,<br/>minimap, spell slots"]:2
 
-| Key | Action | Context |
-|-----|--------|---------|
-| W/S/A/D, Arrows | Move | Exploration |
-| F | Attack | Combat |
-| R | Flee | Combat |
-| G | Pick up items | On treasure tile |
-| I | Show inventory | Any time |
-| < (comma) | Ascend stairs | On up stairs |
-| > (period) | Descend stairs | On down stairs |
-| Q | Quit | Any time |
+    Log["LogPanel (10 rows)<br/>AI descriptions, combat narration, item pickups"]:5
+
+    Cmd["CommandBar (1 row) — level, turn, position, command input via :"]:5
+```
 
 ### Rendering Pipeline
 
-1. Player input triggers `action_move()`, `action_combat_attack()`, `action_use_stairs()`, etc.
-2. Game state updates: position, turn counter, level generation, combat state
-3. `compute_fov()` recalculates visible tiles
-4. Visible set merged into persistent revealed set
-5. AI DM triggers: room entry check, combat narration, level themes
-6. Each widget's reactive `turn` property incremented, triggering `render()`
-7. `MapPanel.render()` builds Rich `Text` — player, monsters, treasure, tiles by visibility
-8. `StatsPanel.render()` builds Rich `Text` — full character sheet with HP bar, abilities, equipment, combat indicator
-9. Log entries written to `RichLog` for scrollable history
+```mermaid
+sequenceDiagram
+    participant P as Player Input
+    participant A as App (action handlers)
+    participant G as GameState
+    participant F as FOV
+    participant DM as DungeonMaster
+    participant W as Widgets
+
+    P->>A: Key press (WASD, F, G, etc.)
+    A->>G: Update state (position, combat, etc.)
+    A->>F: compute_fov()
+    F-->>G: visible set → merged into revealed
+    A->>DM: Room entry / combat / kill check
+    DM-->>A: Narration text
+    A->>W: Increment reactive turn counter
+    W->>W: render() — MapPanel, StatsPanel, LogPanel
+```
 
 ### Widget Communication
 
@@ -294,52 +350,66 @@ Widgets hold a reference to `GameState` (set via `set_game_state()`). The app ca
 
 ### Modal Screens
 
-**`CharacterCreationScreen`** — Shown on app mount. Collects name (Input), class (Select), race (Select). On submit, calls `create_character()`, assigns starting equipment by class (Fighter=Long Sword+Chain, Mage=Staff, Thief=Dagger+Leather, Cleric=Mace+Scale), then returns character via `dismiss()`.
+- **`CharacterCreationScreen`** — Name, class, race selection. Starting equipment per class. Load Game button for returning players
+- **`SpellSelectionScreen`** — Choose spell to cast from available slots
+- **`SaveLoadScreen`** — 5 manual slots + autosave
+- **`MerchantScreen`** — OptionList-based buy/sell interface
+- **`InventoryScreen`** — OptionList-based equip/unequip/use
+- **`UseItemScreen`** — Consumable item selection
+
+### Key Bindings
+
+| Key | Action | Context |
+|-----|--------|---------|
+| W/S/A/D, Arrows | Move / Turn | Exploration |
+| F | Attack | Combat |
+| R | Flee | Combat |
+| C | Cast spell | Combat (Mage/Cleric) |
+| G | Pick up items | On treasure tile |
+| I | Show inventory | Any time |
+| U | Use consumable | Any time |
+| T | Talk to NPC | Adjacent to NPC |
+| J | Quest log | Any time |
+| V | Toggle map/first-person | Any time |
+| < (comma) | Ascend stairs (heals) | On up stairs |
+| > (period) | Descend stairs (heals) | On down stairs |
+| Ctrl+S | Save game | Any time |
+| Ctrl+L | Load game | Any time |
+| : | Command input mode | Any time |
+| Q | Quit | Any time |
 
 ## Data Flow
 
 ### Exploration
-```
-Key Press → action_move(direction)
-  → Check monster at destination → start combat if found
-  → Move player, increment turn
-  → compute_fov() → visible set → revealed set
-  → Check ground items → notify player
-  → Check room entry → AI describe_room() if new
-  → Random corridor encounter (3% chance)
-  → EventBus.publish("player_moved")
-  → All widgets refresh
-```
 
-### Combat
-```
-Monster bump or corridor encounter → _start_combat(monster)
-  → DM.narrate_combat_start()
-  → CombatState.start() (roll initiative)
-  → Player presses F → CombatState.player_attack()
-    → d20 + attack_bonus vs monster AC
-    → On hit: roll damage, check monster death
-    → Monster retaliates: d20 + attack_bonus vs player AC
-    → Special abilities (poison/paralyze/drain)
-  → PLAYER_WIN → gain XP, loot drop, DM.narrate_kill()
-  → PLAYER_DEAD → game over message
-  → PLAYER_FLED → combat ends, continue exploring
+```mermaid
+flowchart TD
+    K[Key Press] --> Move[action_move direction]
+    Move --> ChkMon{Monster at<br/>destination?}
+    ChkMon -->|Yes| Combat[Start combat]
+    ChkMon -->|No| DoMove[Move player, increment turn]
+    DoMove --> FOV[compute_fov → visible → revealed]
+    FOV --> ChkGround{Items on<br/>ground?}
+    ChkGround -->|Yes| Notify[Notify player]
+    ChkGround -->|No| ChkRoom
+    Notify --> ChkRoom{New room?}
+    ChkRoom -->|Yes| AI[AI describe_room]
+    ChkRoom -->|No| ChkEnc
+    AI --> ChkEnc{Corridor?<br/>3% chance}
+    ChkEnc -->|Yes| RandEnc[Random encounter]
+    ChkEnc -->|No| Pub
+    RandEnc --> Pub[EventBus.publish player_moved]
+    Pub --> Refresh[All widgets refresh]
 ```
 
 ### AI Narration
+
+```mermaid
+flowchart LR
+    E[Game event] --> DM[DM method]
+    DM --> C{SQLite cache<br/>SHA-256 key}
+    C -->|Hit| Log[Log to narrative panel]
+    C -->|Miss| API{Claude Sonnet API}
+    API -->|Success| Cache[Cache result] --> Log
+    API -->|Fail| FB[Random fallback template] --> Log
 ```
-Game event (room enter, combat, kill, level change, treasure)
-  → DM method called
-  → Check SQLite cache (SHA-256 key)
-  → If miss: try Claude Sonnet API → cache result
-  → If API unavailable: random template from fallback JSON
-  → Return text → _log() to narrative panel
-```
-
-## Future Architecture (Phases 5-6)
-
-### Phase 5: NPCs + Quests
-`entities/npc.py` with AI-driven dialogue and personality. Quest system (fetch/kill/explore) with AI-generated objectives. `combat/spells.py` for Mage/Cleric casting.
-
-### Phase 6: Polish
-JSON save/load with versioned migration. ASCII first-person corridor view ported from `DUNGMAKE.TXT`. Locked/magically locked door mechanics, minimap, full command parser. Test suite expansion.
