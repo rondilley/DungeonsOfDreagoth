@@ -12,35 +12,37 @@ python -m dreagoth
 
 ## Controls
 
-| Key | Action |
-|-----|--------|
-| `W` / `Up` | Move north |
-| `S` / `Down` | Move south |
-| `A` / `Left` | Move west |
-| `D` / `Right` | Move east |
-| `F` | Attack (in combat) |
-| `R` | Flee (in combat) |
-| `G` | Pick up items |
-| `I` | Show inventory |
-| `<` (comma) | Ascend stairs |
-| `>` (period) | Descend stairs |
-| `Q` | Quit |
+| Key | Action | Key | Action |
+|-----|--------|-----|--------|
+| `W` / `Up` | Move forward | `S` / `Down` | Move backward |
+| `A` / `Left` | Turn left | `D` / `Right` | Turn right |
+| `F` | Attack (combat) | `R` | Flee (combat) |
+| `G` | Pick up items | `I` | Inventory |
+| `C` | Cast spell (Mage/Cleric) | `U` | Use consumable item |
+| `T` | Talk to adjacent NPC | `J` | Quest log |
+| `<` `,` | Stairs up (heals + rests) | `>` `.` | Stairs down (heals + rests) |
+| `V` | Toggle map/first-person | `Ctrl+S` | Save game |
+| `Ctrl+L` | Load game | `:` | Command input mode |
+| `Q` | Quit | | |
 
 ## Features
 
-### Implemented
-- **Dungeon Generation** — Procedural 80x40 grid ported from 1991 QBasic, 25 rooms/level, MST-connected corridors, multi-level stair traversal
-- **Fog of War** — Recursive 8-octant shadowcasting FOV
+- **Dungeon Generation** — Procedural 80x40 grid ported from 1991 QBasic, 25 rooms/level, MST-connected corridors, multi-level stair traversal, locked and magically locked doors
+- **Fog of War** — Recursive 8-octant shadowcasting FOV, extended by Light spell
 - **Character System** — 4 classes (Fighter/Mage/Thief/Cleric), 4 races (Human/Elf/Dwarf/Halfling), D&D ability scores (4d6 drop lowest), racial modifiers
-- **Equipment** — 56 items across weapons, armor, clothing, provisions, and misc. Equipment slots (weapon/armor/shield), class restrictions, gold economy
+- **Equipment** — 61 items across weapons, armor, clothing, provisions, consumables, and misc. Equipment slots (weapon/armor/shield), class restrictions, gold economy
 - **Combat** — Turn-based D&D-style: d20 attack rolls, initiative, critical hits (2x damage on nat 20), fumbles (nat 1), monster special abilities (poison, paralyze, drain, regen)
 - **Monsters** — 14 types scaling with dungeon depth: Giant Rats and Kobolds on level 1 up to Trolls and Minotaurs on level 10. Loot drops and XP rewards
-- **AI Dungeon Master** — Claude-powered atmospheric narration for room descriptions, combat starts, killing blows, critical hits, level themes, and treasure discovery. SQLite cache prevents duplicate API calls. Template fallbacks for 100% offline play
-- **TUI** — Rich terminal interface with map panel, character stats sidebar (HP bar, abilities, equipment, gold, XP), scrollable narrative log, and status bar
-
-### Planned
-- **Phase 5:** NPCs, quest system, dialogue, spellcasting
-- **Phase 6:** Save/load, first-person corridor view, door mechanics, full command parser
+- **Spells** — 12 spells (6 Mage, 6 Cleric) with 3-level slot progression. Combat spells and utility buffs (Light extends FOV). Slots restored on stair rest
+- **NPCs** — 8 NPC types: 3 merchants (buy/sell with depth-tiered stock), 2 quest givers, 1 sage, 2 wanderers. AI-generated dialogue with fallback templates
+- **Quests** — Kill monsters and explore depth quest types with progress tracking and AI-narrated offers/completions
+- **AI Dungeon Master** — Claude-powered atmospheric narration for rooms, combat, kills, crits, level themes, treasure, and NPC dialogue. SQLite cache prevents duplicate API calls. Template fallbacks for 100% offline play. Prefetch on level descent
+- **Save/Load** — JSON serialization with 5 manual slots + autosave. Items stored by ID for compact saves
+- **First-Person View** — ASCII corridor renderer (Tab toggles with map view), minimap in stats panel
+- **Command Parser** — 21 commands with aliases and tab completion, Vi-style `:` input mode
+- **Resurrection** — Gold-based revival on death: equipment dropped as treasure pile, respawn at stairs with half HP. No gold = permanent death
+- **Audio** — Event-driven retro sound effects (19 WAV tones, stdlib-generated). Fallback chain: playsound3 → winsound → bell → silent
+- **TUI** — Rich terminal interface with map/first-person panel, character stats sidebar (HP bar, abilities, equipment, minimap, spell slots), scrollable narrative log, and command bar
 
 ## Tech Stack
 
@@ -50,23 +52,27 @@ python -m dreagoth
 | Dungeon grid | numpy uint8 arrays |
 | AI DM | Anthropic SDK (Claude Sonnet) |
 | Schema validation | pydantic |
-| Persistence | SQLite (AI cache + save games) |
+| Audio | playsound3 (optional), winsound, stdlib WAV generation |
+| Persistence | SQLite (AI cache), JSON (save games) |
 | Tests | pytest |
 
 ## Project Structure
 
 ```
 dreagoth/
-  core/          # Engine: constants, dice, events, game_state
+  core/          # Engine: constants, dice, events, game_state, save_load, command_parser
   dungeon/       # Generation: tiles, rooms, corridors, FOV, generator, populator
   character/     # Player: character creation, classes, races, leveling
-  combat/        # Turn-based D&D combat engine
-  entities/      # Items (56), monsters (14), equipment database
+  combat/        # Turn-based D&D combat engine, spells
+  entities/      # Items (61), monsters (14), NPCs (8), equipment database
   ai/            # AI DM: Anthropic client, narration, SQLite cache, fallbacks
-  ui/            # TUI: map, stats, log, command bar panels
-  data/          # equipment.json, monsters.json, fallback_descriptions.json
+  quest/         # Quest system: kill monsters, explore depth
+  audio/         # Sound manager, retro tone generator
+  ui/            # TUI: map, first-person, stats, log, command bar, modal screens
+  data/          # equipment.json, monsters.json, npcs.json, spells.json, sounds.json
 Old_Code/        # Original 1991 QBasic source files
-tests/           # 53 tests
+saves/           # Save game slots (JSON) and AI cache (SQLite)
+tests/           # 184 tests across 10 files
 ```
 
 ## Original Source
