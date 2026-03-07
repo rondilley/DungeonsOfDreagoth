@@ -66,11 +66,11 @@
     {"id": "robe", "name": "Robe", "category": "clothing", "price": 6, "currency": "S"}
   ],
   "provisions": [
-    {"id": "rations_iron", "name": "Iron Rations (1 week)", "category": "provisions", "price": 5, "currency": "G"},
-    {"id": "rations_standard", "name": "Standard Rations (1 week)", "category": "provisions", "price": 3, "currency": "G"},
+    {"id": "rations_iron", "name": "Iron Rations", "category": "provisions", "price": 5, "currency": "G", "consumable": true, "regen_dice": "1d2", "regen_turns": 10},
+    {"id": "rations_standard", "name": "Standard Rations", "category": "provisions", "price": 3, "currency": "G", "consumable": true, "regen_dice": "1d2", "regen_turns": 6},
     {"id": "torch", "name": "Torch", "category": "provisions", "price": 1, "currency": "C"},
     {"id": "oil_flask", "name": "Oil Flask", "category": "provisions", "price": 1, "currency": "G"},
-    {"id": "ale_pint", "name": "Ale, pint", "category": "provisions", "price": 1, "currency": "S"}
+    {"id": "ale_pint", "name": "Ale, pint", "category": "provisions", "price": 1, "currency": "S", "consumable": true, "regen_dice": "1d1", "regen_turns": 4}
   ],
   "misc": [
     {"id": "backpack", "name": "Leather Backpack", "category": "misc", "price": 2, "currency": "G"},

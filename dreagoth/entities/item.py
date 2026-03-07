@@ -48,6 +48,8 @@ class Item:
     # Consumable fields
     consumable: bool = False
     heal_dice: str = ""
+    regen_dice: str = ""   # heal-over-time per turn (e.g. "1d2")
+    regen_turns: int = 0   # how many turns the regen lasts
 
     @property
     def gold_value(self) -> int:
@@ -99,6 +101,8 @@ class Item:
             parts.append(f"[{self.damage}]")
         if self.heal_dice:
             parts.append(f"[heal {self._heal_str(level)}]")
+        if self.regen_dice:
+            parts.append(f"[regen {self.regen_dice}/turn x{self.regen_turns}]")
         if self.ac_bonus:
             parts.append(f"AC-{self.ac_bonus}")
         if self.attack_mod:

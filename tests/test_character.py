@@ -161,7 +161,7 @@ class TestCharacter:
 class TestMonsterDB:
     def test_loads(self):
         db = MonsterDB()
-        assert len(db.templates) == 14
+        assert len(db.templates) == 22
 
     def test_spawn(self):
         db = MonsterDB()
@@ -342,6 +342,65 @@ class TestConsumables:
     def test_display_info_shows_heal(self):
         potion = equipment_db.get("potion_minor")
         assert "[heal 1d4+1]" in potion.display_info
+
+
+class TestFoodRegen:
+    def test_use_food_applies_regen_buff(self):
+        char = create_character("Test", "fighter", "human")
+        char.max_hp = 20
+        char.hp = 10
+        food = Item(id="rations", name="Rations", category="provisions",
+                    price=3, consumable=True, regen_dice="1d2", regen_turns=6)
+        char.inventory.append(food)
+        result = char.use_item(food)
+        assert result is not None
+        msg, healed = result
+        assert healed == 0  # no instant heal
+        assert "regen" in msg.lower()
+        assert food not in char.inventory
+        assert len(char.active_buffs) == 1
+        assert char.active_buffs[0].effect == "regen"
+        assert char.active_buffs[0].regen_dice == "1d2"
+        assert char.active_buffs[0].remaining_turns == 6
+
+    def test_regen_heals_on_tick(self):
+        char = create_character("Test", "fighter", "human")
+        char.max_hp = 50
+        char.hp = 10
+        from dreagoth.combat.spells import ActiveBuff
+        char.active_buffs.append(ActiveBuff(
+            spell_id="food_rations", effect="regen",
+            value=0, remaining_turns=3, regen_dice="1d2",
+        ))
+        msgs = char.tick_buffs()
+        assert len(msgs) == 1
+        assert "Regen" in msgs[0]
+        assert char.hp > 10
+        assert char.active_buffs[0].remaining_turns == 2
+
+    def test_regen_expires(self):
+        char = create_character("Test", "fighter", "human")
+        char.max_hp = 50
+        char.hp = 10
+        from dreagoth.combat.spells import ActiveBuff
+        char.active_buffs.append(ActiveBuff(
+            spell_id="food_rations", effect="regen",
+            value=0, remaining_turns=1, regen_dice="1d2",
+        ))
+        char.tick_buffs()
+        assert len(char.active_buffs) == 0
+
+    def test_food_items_in_db(self):
+        rations = equipment_db.get("rations_iron")
+        assert rations is not None
+        assert rations.consumable is True
+        assert rations.regen_dice == "1d2"
+        assert rations.regen_turns == 10
+
+    def test_food_display_info(self):
+        rations = equipment_db.get("rations_standard")
+        info = rations.display_info
+        assert "regen" in info.lower()
 
 
 class TestRoomPrefetch:

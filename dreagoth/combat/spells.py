@@ -58,9 +58,10 @@ class SpellTemplate:
 class ActiveBuff:
     """An active spell buff on the player."""
     spell_id: str
-    effect: str  # ac, attack, flee, fov_extend, detect_magic
+    effect: str  # ac, attack, flee, fov_extend, detect_magic, regen
     value: int
     remaining_turns: int | None  # None = until combat ends
+    regen_dice: str = ""  # for regen buffs: dice rolled per turn
 
 
 @dataclass

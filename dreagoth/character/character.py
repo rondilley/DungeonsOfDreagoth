@@ -196,10 +196,20 @@ class Character:
     def fov_bonus(self) -> int:
         return sum(b.value for b in self.active_buffs if b.effect == "fov_extend")
 
-    def tick_buffs(self) -> None:
-        """Decrement turn-based buffs, remove expired ones."""
+    def tick_buffs(self) -> list[str]:
+        """Decrement turn-based buffs, process regen, remove expired ones.
+
+        Returns list of log messages (e.g. regen healing).
+        """
+        messages: list[str] = []
         remaining = []
         for buff in self.active_buffs:
+            if buff.effect == "regen" and buff.regen_dice:
+                healed = self.heal(roll_dice(buff.regen_dice))
+                if healed > 0:
+                    messages.append(
+                        f"Regen: +{healed} HP ({self.hp}/{self.max_hp})"
+                    )
             if buff.remaining_turns is not None:
                 buff.remaining_turns -= 1
                 if buff.remaining_turns > 0:
@@ -207,6 +217,7 @@ class Character:
             else:
                 remaining.append(buff)
         self.active_buffs = remaining
+        return messages
 
     def clear_combat_buffs(self) -> None:
         """Remove buffs that last until combat ends (duration=None)."""
@@ -262,13 +273,28 @@ class Character:
         """Use a consumable item. Returns (message, healed) or None.
 
         Healing scales with character level: base roll + level bonus.
+        Food items apply a regen buff instead of instant healing.
         """
         if item not in self.inventory or not item.is_consumable:
             return None
+        self.inventory.remove(item)
+        # Regen items: apply heal-over-time buff
+        if item.regen_dice and item.regen_turns:
+            buff = ActiveBuff(
+                spell_id=f"food_{item.id}",
+                effect="regen",
+                value=0,
+                remaining_turns=item.regen_turns,
+                regen_dice=item.regen_dice,
+            )
+            self.active_buffs.append(buff)
+            msg = (f"You eat {item.name}. "
+                   f"(regen {item.regen_dice}/turn for {item.regen_turns} turns)")
+            return msg, 0
+        # Instant healing items
         base = roll_dice(item.heal_dice)
         level_bonus = self.level - 1
         healed = self.heal(base + level_bonus)
-        self.inventory.remove(item)
         msg = f"You use {item.name}, healing {healed} HP. ({self.hp}/{self.max_hp} HP)"
         return msg, healed
 

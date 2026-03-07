@@ -100,6 +100,7 @@ def _serialize_character(char: Character) -> dict:
             {
                 "spell_id": b.spell_id, "effect": b.effect,
                 "value": b.value, "remaining_turns": b.remaining_turns,
+                "regen_dice": b.regen_dice,
             }
             for b in char.active_buffs
         ],
@@ -166,6 +167,7 @@ def _deserialize_character(data: dict) -> Character:
         char.active_buffs.append(ActiveBuff(
             spell_id=b["spell_id"], effect=b["effect"],
             value=b["value"], remaining_turns=b["remaining_turns"],
+            regen_dice=b.get("regen_dice", ""),
         ))
     return char
 

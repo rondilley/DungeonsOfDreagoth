@@ -31,10 +31,11 @@ python -m dreagoth
 - **Fog of War** — Recursive 8-octant shadowcasting FOV, extended by Light spell
 - **Character System** — 4 classes (Fighter/Mage/Thief/Cleric), 4 races (Human/Elf/Dwarf/Halfling), D&D ability scores (4d6 drop lowest), racial modifiers
 - **Equipment** — 76 items across weapons, armor, accessories, clothing, provisions, consumables, and misc. 8 equipment slots (weapon, armor, shield, helmet, boots, gloves, ring, amulet), class restrictions, gold economy
+- **Food & Regen** — Provisions (rations, ale) are consumable and heal over time via a regen buff, ticking each turn as the player explores. Potions and bandages still heal instantly
 - **Combat** — Turn-based D&D-style: d20 attack rolls, initiative, critical hits (2x damage on nat 20), fumbles (nat 1), monster special abilities (poison, paralyze, drain, regen)
-- **Monsters** — 14 types scaling with dungeon depth: Giant Rats and Kobolds on level 1 up to Trolls and Minotaurs on level 10. Loot drops and XP rewards
+- **Monsters** — 22 types scaling with dungeon depth: Giant Rats and Kobolds on level 1 up to Vampires and Young Black Dragons on level 14. Loot drops and XP rewards
 - **Spells** — 12 spells (6 Mage, 6 Cleric) with 3-level slot progression. Combat spells and utility buffs (Light extends FOV). Slots restored on stair rest
-- **NPCs** — 8 NPC types: 3 merchants (buy/sell with depth-tiered stock), 2 quest givers, 1 sage, 2 wanderers. AI-generated dialogue with fallback templates
+- **NPCs** — 11 NPC types: 4 merchants (buy/sell with depth-tiered stock), 2 quest givers, 2 sages, 3 wanderers. AI-generated dialogue with fallback templates
 - **Quests** — Kill monsters and explore depth quest types with progress tracking and AI-narrated offers/completions
 - **AI Dungeon Master** — Claude-powered atmospheric narration for rooms, combat, kills, crits, level themes, treasure, and NPC dialogue. SQLite cache prevents duplicate API calls. Template fallbacks for 100% offline play. Prefetch on level descent
 - **Save/Load** — JSON serialization with 5 manual slots + autosave. Items stored by ID for compact saves
@@ -64,7 +65,7 @@ dreagoth/
   dungeon/       # Generation: tiles, rooms, corridors, FOV, generator, populator
   character/     # Player: character creation, classes, races, leveling
   combat/        # Turn-based D&D combat engine, spells
-  entities/      # Items (76), monsters (14), NPCs (8), equipment database
+  entities/      # Items (76), monsters (22), NPCs (11), equipment database
   ai/            # AI DM: Anthropic client, narration, SQLite cache, fallbacks
   quest/         # Quest system: kill monsters, explore depth
   audio/         # Sound manager, retro tone generator
@@ -72,7 +73,7 @@ dreagoth/
   data/          # equipment.json, monsters.json, npcs.json, spells.json, sounds.json
 Old_Code/        # Original 1991 QBasic source files
 saves/           # Save game slots (JSON) and AI cache (SQLite)
-tests/           # 184 tests across 10 files
+tests/           # 189 tests across 10 files
 ```
 
 ## Original Source

@@ -16,18 +16,18 @@ graph TD
 
     GS --> Char[Character<br/>Inventory]
     GS --> SL[Save/Load<br/>JSON, 5 slots]
-    Char --> Items[Items<br/>EquipmentDB 61]
+    Char --> Items[Items<br/>EquipmentDB 76]
 
     Gen --> Pop[Populator]
     Pop --> DL[DungeonLevel<br/>numpy 80x40]
-    Pop --> NPCs[NPC DB 8]
+    Pop --> NPCs[NPC DB 11]
     DL --> FOV[FOV<br/>Shadowcasting]
 
     DM -->|cache-first| AIC[AIClient<br/>Claude Sonnet]
     DM -->|cache hit| Cache[AICache<br/>SQLite]
     DM -->|API fail| FB[Fallback<br/>Templates]
 
-    CE --> Mon[Monster<br/>MonsterDB 14]
+    CE --> Mon[Monster<br/>MonsterDB 22]
     CE --> Spells[SpellDB 12<br/>Mage + Cleric]
     CE --> Quests[QuestLog<br/>Kill / Explore]
 
@@ -37,7 +37,7 @@ graph TD
 ## Core Modules
 
 ### `core/constants.py`
-All tuneable game parameters. Grid is 80x40 (expanded from original 80x24). Key values: `ROOMS_PER_LEVEL=25`, `FOV_RADIUS=8`, room sizes 3-8 x 3-6, `MAX_DUNGEON_DEPTH=10`.
+All tuneable game parameters. Grid is 80x40 (expanded from original 80x24). Key values: `ROOMS_PER_LEVEL=25`, `FOV_RADIUS=8`, room sizes 3-8 x 3-6. Dungeon depth is unlimited — monsters and NPCs scale through level 14+.
 
 ### `core/events.py`
 Synchronous pub/sub event bus. Single global instance `bus`. Components subscribe to named events (strings); publishers call `bus.publish("event_name", **data)`. Current events: `player_moved`.
@@ -127,8 +127,8 @@ Core player data and mechanics:
 - **4 classes** — Fighter (1d10 HP, +1 atk/level), Mage (1d4 HP, +0.5 atk/level), Thief (1d6 HP), Cleric (1d8 HP). Defined in `CLASS_DATA` dict
 - **4 races** — Human (no mods), Elf (+1 DEX/INT, -1 CON), Dwarf (+2 CON, -1 CHA), Halfling (+2 DEX, -1 STR). Defined in `RACE_DATA` dict
 - **6 ability scores** — rolled with 4d6-drop-lowest, modified by race
-- **AC calculation** — 10 + dex_mod + sum of all equipment ac_bonus + buffs
-- **Attack bonus** — level * class multiplier + str_mod + sum of equipment attack_mod + buffs
+- **AC calculation** — Descending (classic D&D): 10 - dex_mod - equipment ac_bonus - buffs. Lower = better
+- **Attack bonus** — level * class multiplier + str_mod + sum of equipment attack_mod + buffs. THAC0-style: d20 + attack_bonus >= 20 - target_AC
 - **8 equipment slots** — weapon, armor (body), shield, helmet (head), boots, gloves, ring, amulet. Class restrictions enforced on equip. Slot-to-field mapping in `_SLOT_MAP`
 - **Leveling** — 10-level XP table. Level-up adds hit die + CON mod to max HP
 - **Spell slots** — 3-level slot progression for Mage and Cleric classes
@@ -137,8 +137,8 @@ Core player data and mechanics:
 
 ### Items and Equipment (`entities/item.py`)
 
-- **`Item` dataclass** — id, name, category, price/currency, damage dice (weapons), AC bonus (armor/accessories), attack_mod (accessories), slot, class restrictions, consumable/heal_dice fields
-- **`EquipmentDB` singleton** — loads `data/equipment.json` (76 items: weapons, armor, accessories, clothing, provisions, misc, 5 consumable healing items). Categories include helmets, boots, gloves, rings, and amulets
+- **`Item` dataclass** — id, name, category, price/currency, damage dice (weapons), AC bonus (armor/accessories), attack_mod (accessories), slot, class restrictions, consumable/heal_dice fields, regen_dice/regen_turns for food heal-over-time
+- **`EquipmentDB` singleton** — loads `data/equipment.json` (76 items: weapons, armor, accessories, clothing, provisions, misc, 5 consumable healing items). Provisions (rations, ale) are consumable food with regen buffs. Categories include helmets, boots, gloves, rings, and amulets
 - **`parse_dice()` / `roll_dice()`** — parses "2d6+1" format strings and rolls them
 - **`random_treasure(tier)`** — generates loot appropriate to dungeon depth
 - **`for_merchant_tier()`** — filters items appropriate for NPC shops
@@ -205,7 +205,7 @@ flowchart TD
 
 - **`MonsterTemplate`** — static stats from `data/monsters.json`
 - **`Monster`** — live instance with HP, position, damage. Created via `MonsterDB.spawn()`
-- **14 types** scaling across levels 1-10:
+- **22 types** scaling across levels 1-14:
 
 | Monster | Levels | HP | AC | Damage | Special | XP |
 |---------|--------|-----|-----|--------|---------|-----|
@@ -219,10 +219,18 @@ flowchart TD
 | Giant Spider | 3-7 | 2d8 | 6 | 1d6 | poison | 30 |
 | Hobgoblin | 3-8 | 1d8+1 | 5 | 1d8 | — | 35 |
 | Ghoul | 4-8 | 2d8 | 6 | 1d6+1 | paralyze | 50 |
-| Ogre | 4-9 | 4d8 | 5 | 1d10 | — | 75 |
-| Wight | 5-9 | 4d8 | 5 | 1d8 | drain | 100 |
-| Troll | 6-10 | 6d8 | 4 | 2d6 | regen | 150 |
-| Minotaur | 7-10 | 6d8 | 4 | 2d6+2 | charge | 200 |
+| Ogre | 4-10 | 4d8 | 5 | 1d10 | — | 75 |
+| Wight | 5-11 | 4d8 | 5 | 1d8 | drain | 100 |
+| Troll | 6-12 | 6d8 | 4 | 2d6 | regen | 150 |
+| Minotaur | 7-12 | 6d8 | 4 | 2d6+2 | charge | 200 |
+| Gargoyle | 8-13 | 4d8+4 | 3 | 2d6 | — | 200 |
+| Wraith | 8-14 | 5d8 | 3 | 1d8+2 | drain | 250 |
+| Owlbear | 9-13 | 5d8+5 | 4 | 2d6+1 | — | 225 |
+| Basilisk | 9-14 | 6d8 | 3 | 2d6 | paralyze | 300 |
+| Vampire | 10-14 | 8d8 | 2 | 2d6+2 | drain | 500 |
+| Hill Giant | 10-14 | 8d8 | 3 | 2d8 | — | 400 |
+| Spectre | 11-14 | 7d8 | 2 | 2d6 | drain | 450 |
+| Young Black Dragon | 12-14 | 10d8 | 1 | 3d6 | poison | 750 |
 
 Each monster has a unique single-character symbol and color for the map display.
 
@@ -230,14 +238,14 @@ Each monster has a unique single-character symbol and color for the map display.
 
 - **`SpellDB` singleton** — loads `data/spells.json` (12 spells: 6 mage, 6 cleric)
 - **`SpellSlots`** — 3-level slot progression, restored on stair rest
-- **`ActiveBuff`** — time-limited combat/utility buffs (e.g., Light extends FOV radius)
+- **`ActiveBuff`** — time-limited combat/utility buffs (e.g., Light extends FOV radius). Also used for food regen: `effect="regen"` with `regen_dice` rolled each turn via `tick_buffs()`
 - `player_cast()` handles spell combat integration
 
 ## NPCs and Quests
 
 ### NPCs (`entities/npc.py`)
 
-- **`NPCDB` singleton** — loads `data/npcs.json` (8 templates: 3 merchants, 2 quest givers, 1 sage, 2 wanderers)
+- **`NPCDB` singleton** — loads `data/npcs.json` (11 templates: 4 merchants, 2 quest givers, 2 sages, 3 wanderers)
 - **`NPC`** — tracks position, `talked_to`, `quest_id`
 - AI DM generates dialogue; fallback templates for offline play
 

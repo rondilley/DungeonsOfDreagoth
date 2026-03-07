@@ -8,11 +8,11 @@ from dreagoth.dungeon.tiles import Tile, is_door
 
 class TestNPCDB:
     def test_loads_npcs(self):
-        assert len(npc_db.templates) == 8
+        assert len(npc_db.templates) == 11
 
     def test_has_merchants(self):
         merchants = [t for t in npc_db.templates.values() if t.role == "merchant"]
-        assert len(merchants) == 3
+        assert len(merchants) == 4
 
     def test_has_quest_givers(self):
         quest_givers = [t for t in npc_db.templates.values() if t.role == "quest_giver"]

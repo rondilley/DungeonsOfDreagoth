@@ -665,7 +665,9 @@ class DreagothApp(App):
             gs.player_y = ny
             gs.turn += 1
             if gs.player:
-                gs.player.tick_buffs()
+                regen_msgs = gs.player.tick_buffs()
+                for rmsg in regen_msgs:
+                    self._log(rmsg, style="bright_green")
 
             # Mark door as opened when player walks through it
             tile = level[nx, ny]
