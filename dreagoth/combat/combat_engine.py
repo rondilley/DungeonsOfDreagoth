@@ -64,6 +64,15 @@ class CombatState:
             self._add_log(f"The {self.monster.name} acts first!", style="bright_red")
             self._monster_attack()
 
+    @staticmethod
+    def _hits(attack_roll: int, attack_bonus: int, target_ac: int) -> bool:
+        """THAC0-style hit check (descending AC).
+
+        To hit: d20 + attack_bonus >= 20 - target_AC.
+        Lower target AC = harder to hit.
+        """
+        return attack_roll + attack_bonus >= 20 - target_ac
+
     def player_attack(self) -> None:
         """Player attacks the monster."""
         if self.result != CombatResult.ONGOING:
@@ -72,12 +81,11 @@ class CombatState:
         attack_roll = d20()
         is_crit = attack_roll == 20
         is_fumble = attack_roll == 1
-        total = attack_roll + self.player.attack_bonus
 
         if is_fumble:
             self.last_player_outcome = AttackOutcome.FUMBLE
             self._add_log("You swing wildly and miss!", style="grey50")
-        elif is_crit or total >= self.monster.ac:
+        elif is_crit or self._hits(attack_roll, self.player.attack_bonus, self.monster.ac):
             damage = self.player.roll_damage()
             if is_crit:
                 damage *= 2
@@ -112,14 +120,13 @@ class CombatState:
         """Monster attacks the player."""
         attack_roll = d20()
         is_crit = attack_roll == 20
-        total = attack_roll + self.monster.attack_bonus
 
         if attack_roll == 1:
             self._add_log(
                 f"The {self.monster.name} fumbles its attack!",
                 style="grey50",
             )
-        elif is_crit or total >= self.player.ac:
+        elif is_crit or self._hits(attack_roll, self.monster.attack_bonus, self.player.ac):
             damage = self.monster.roll_damage()
             if is_crit:
                 damage *= 2
@@ -193,7 +200,9 @@ class CombatState:
                     )
 
         elif spell.type == "combat_heal":
-            healed = self.player.heal(roll_dice(spell.heal))
+            base = roll_dice(spell.heal)
+            level_bonus = self.player.level - 1
+            healed = self.player.heal(base + level_bonus)
             self._add_log(
                 f"You heal {healed} HP. ({self.player.hp}/{self.player.max_hp} HP)",
                 style="bright_green",
@@ -208,7 +217,7 @@ class CombatState:
             )
             self.player.active_buffs.append(buff)
             effect_desc = {
-                "ac": f"AC +{spell.value}",
+                "ac": f"AC -{spell.value}",
                 "attack": f"Attack +{spell.value}",
                 "flee": f"Flee +{spell.value}",
             }.get(spell.effect, spell.effect)

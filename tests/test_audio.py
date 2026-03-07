@@ -76,7 +76,7 @@ class TestBackendDetection:
     def test_detect_fallback_without_playsound3(self):
         with patch.dict("sys.modules", {"playsound3": None}):
             backend = _detect_backend()
-            assert backend in (AudioBackend.WINSOUND, AudioBackend.BELL)
+            assert backend in (AudioBackend.WINSOUND, AudioBackend.APLAY, AudioBackend.BELL)
 
 
 class TestSoundManager:

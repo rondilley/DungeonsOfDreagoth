@@ -39,9 +39,12 @@ class Item:
     weapon_type: str = ""  # melee, ranged, ammo
     range: int = 0
     classes: list[str] = field(default_factory=list)
-    # Armor fields
+    # Armor / accessory fields
     ac_bonus: int = 0
-    slot: str = ""  # body, shield, head
+    attack_mod: int = 0
+    slot: str = ""  # body, shield, head, boots, gloves, ring, amulet
+    # Weapon modifier
+    two_handed: bool = False
     # Consumable fields
     consumable: bool = False
     heal_dice: str = ""
@@ -69,16 +72,43 @@ class Item:
         return self.consumable
 
     @property
-    def display_info(self) -> str:
+    def is_equippable(self) -> bool:
+        """True if this item can be equipped in any slot."""
+        return self.is_weapon or bool(self.slot)
+
+    def _heal_str(self, level: int = 1) -> str:
+        """Format heal dice with level scaling bonus."""
+        if not self.heal_dice:
+            return ""
+        bonus = level - 1
+        if bonus <= 0:
+            return self.heal_dice
+        # Parse existing bonus from dice string and add level bonus
+        count, sides, base_bonus = parse_dice(self.heal_dice)
+        total_bonus = base_bonus + bonus
+        if total_bonus > 0:
+            return f"{count}d{sides}+{total_bonus}"
+        return f"{count}d{sides}"
+
+    def display_info_at(self, level: int = 1) -> str:
+        """Display info with heal values scaled to the given character level."""
         parts = [self.name]
+        if self.two_handed:
+            parts.append("[2H]")
         if self.damage:
             parts.append(f"[{self.damage}]")
         if self.heal_dice:
-            parts.append(f"[heal {self.heal_dice}]")
+            parts.append(f"[heal {self._heal_str(level)}]")
         if self.ac_bonus:
-            parts.append(f"AC+{self.ac_bonus}")
+            parts.append(f"AC-{self.ac_bonus}")
+        if self.attack_mod:
+            parts.append(f"Atk+{self.attack_mod}")
         parts.append(f"({self.price}{self.currency})")
         return " ".join(parts)
+
+    @property
+    def display_info(self) -> str:
+        return self.display_info_at(1)
 
 
 class EquipmentDB:
@@ -122,12 +152,14 @@ class EquipmentDB:
                      + self.by_category("clothing")
                      + self.by_category("consumables"))
             return sorted(items, key=lambda i: i.gold_value)
+        elif tier == "armor":
+            return (self.by_category("armor")
+                    + self.by_category("accessories"))
         elif tier == "magic":
-            # Magic merchants sell expensive misc items and holy items
-            return [
-                i for i in self.items.values()
-                if i.category in ("misc",) and i.gold_value >= 5
-            ]
+            # Magic merchants sell accessories and expensive misc items
+            return (self.by_category("accessories")
+                    + [i for i in self.items.values()
+                       if i.category in ("misc",) and i.gold_value >= 5])
         return []
 
     def random_treasure(self, tier: int) -> list[Item]:

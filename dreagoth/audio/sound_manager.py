@@ -1,8 +1,10 @@
-"""Sound manager with fallback chain: playsound3 → winsound → bell → silent."""
+"""Sound manager with fallback chain: playsound3 → winsound → aplay → bell → silent."""
 
 from __future__ import annotations
 
 import json
+import shutil
+import subprocess
 import sys
 import threading
 from enum import Enum, auto
@@ -12,6 +14,7 @@ from pathlib import Path
 class AudioBackend(Enum):
     PLAYSOUND3 = auto()
     WINSOUND = auto()
+    APLAY = auto()
     BELL = auto()
     SILENT = auto()
 
@@ -32,6 +35,9 @@ def _detect_backend() -> AudioBackend:
         return AudioBackend.WINSOUND
     except ImportError:
         pass
+    # aplay (ALSA utils) is available on nearly all Linux systems
+    if shutil.which("aplay"):
+        return AudioBackend.APLAY
     # Bell works on most terminals
     return AudioBackend.BELL
 
@@ -113,6 +119,9 @@ class SoundManager:
         if self._backend == AudioBackend.WINSOUND:
             # winsound.SND_ASYNC returns immediately — no thread needed
             self._play_winsound(path)
+        elif self._backend == AudioBackend.APLAY:
+            t = threading.Thread(target=self._play_aplay, args=(path,), daemon=True)
+            t.start()
         else:
             t = threading.Thread(target=self._play_file, args=(path,), daemon=True)
             t.start()
@@ -127,6 +136,19 @@ class SoundManager:
             )
         except Exception:
             pass
+
+    def _play_aplay(self, path: Path) -> None:
+        """Play a WAV file via aplay (ALSA utils, available on most Linux systems)."""
+        with self._lock:
+            try:
+                subprocess.run(
+                    ["aplay", "-q", str(path)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    timeout=5,
+                )
+            except Exception:
+                pass  # Audio must never crash the game
 
     def _play_file(self, path: Path) -> None:
         """Play a WAV file via playsound3 (blocking, runs in daemon thread)."""

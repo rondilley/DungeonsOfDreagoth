@@ -20,7 +20,7 @@ from dreagoth.entities.npc import NPC
 from dreagoth.quest.quest import Quest, QuestLog, QuestType, QuestStatus, QuestReward
 
 SAVE_DIR = Path(__file__).parent.parent.parent / "saves"
-SAVE_VERSION = 1
+SAVE_VERSION = 2
 NUM_SLOTS = 5
 
 # Safety limits for deserialized data
@@ -86,6 +86,11 @@ def _serialize_character(char: Character) -> dict:
         "weapon": _serialize_item(char.weapon) if char.weapon else None,
         "armor": _serialize_item(char.armor) if char.armor else None,
         "shield": _serialize_item(char.shield) if char.shield else None,
+        "helmet": _serialize_item(char.helmet) if char.helmet else None,
+        "boots": _serialize_item(char.boots) if char.boots else None,
+        "gloves": _serialize_item(char.gloves) if char.gloves else None,
+        "ring": _serialize_item(char.ring) if char.ring else None,
+        "amulet": _serialize_item(char.amulet) if char.amulet else None,
         "is_dead": char.is_dead,
         "spell_slots": {
             "max_slots": char.spell_slots.max_slots,
@@ -134,12 +139,22 @@ def _deserialize_character(data: dict) -> Character:
         if item:
             char.inventory.append(item)
     # Equipment
-    if data["weapon"]:
+    if data.get("weapon"):
         char.weapon = _deserialize_item(data["weapon"])
-    if data["armor"]:
+    if data.get("armor"):
         char.armor = _deserialize_item(data["armor"])
-    if data["shield"]:
+    if data.get("shield"):
         char.shield = _deserialize_item(data["shield"])
+    if data.get("helmet"):
+        char.helmet = _deserialize_item(data["helmet"])
+    if data.get("boots"):
+        char.boots = _deserialize_item(data["boots"])
+    if data.get("gloves"):
+        char.gloves = _deserialize_item(data["gloves"])
+    if data.get("ring"):
+        char.ring = _deserialize_item(data["ring"])
+    if data.get("amulet"):
+        char.amulet = _deserialize_item(data["amulet"])
     # Spell slots
     ss = data.get("spell_slots", {})
     char.spell_slots = SpellSlots(
@@ -462,6 +477,10 @@ def autosave(gs: GameState) -> bool:
 def _migrate(data: dict) -> None:
     """Migrate save data from older versions if needed."""
     version = data.get("version", 0)
-    if version < SAVE_VERSION:
-        # Future migrations go here
-        data["version"] = SAVE_VERSION
+    if version < 2:
+        # v1 → v2: add new equipment slots to character
+        player = data.get("player")
+        if player:
+            for slot in ("helmet", "boots", "gloves", "ring", "amulet"):
+                player.setdefault(slot, None)
+    data["version"] = SAVE_VERSION

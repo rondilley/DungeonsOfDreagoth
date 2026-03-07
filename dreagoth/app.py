@@ -224,15 +224,16 @@ class UseItemScreen(ModalScreen[Item | None]):
     }
     """
 
-    def __init__(self, items: list[Item]) -> None:
+    def __init__(self, items: list[Item], player_level: int = 1) -> None:
         super().__init__()
         self._items = items
+        self._player_level = player_level
 
     def compose(self) -> ComposeResult:
         with Static(id="useitem-box"):
             yield Label("Use Item", id="useitem-title")
             for i, item in enumerate(self._items):
-                yield Button(f"{i+1}. {item.display_info}", id=f"item-{i}")
+                yield Button(f"{i+1}. {item.display_info_at(self._player_level)}", id=f"item-{i}")
             yield Button("Cancel", variant="default", id="item-cancel")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
@@ -244,6 +245,59 @@ class UseItemScreen(ModalScreen[Item | None]):
                 self.dismiss(self._items[idx])
             else:
                 self.dismiss(None)
+
+
+# ---------------------------------------------------------------------------
+# Quit confirmation screen
+# ---------------------------------------------------------------------------
+class QuitScreen(ModalScreen[str | None]):
+    """Modal for confirming quit with save option."""
+
+    CSS = """
+    QuitScreen {
+        align: center middle;
+    }
+    #quit-box {
+        width: 44;
+        height: auto;
+        max-height: 14;
+        border: double #808080;
+        padding: 1 2;
+        background: $surface;
+    }
+    #quit-box Button {
+        width: 100%;
+        margin-bottom: 0;
+    }
+    """
+
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+        ("y", "quit_now", "Quit"),
+        ("n", "cancel", "Cancel"),
+    ]
+
+    def compose(self) -> ComposeResult:
+        with Static(id="quit-box"):
+            yield Label("Quit Game?", id="quit-title")
+            yield Label("Any unsaved progress will be lost.")
+            yield Button("Save & Quit", variant="primary", id="save-quit")
+            yield Button("Quit Without Saving", variant="error", id="quit-now")
+            yield Button("Cancel", variant="default", id="cancel-btn")
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "save-quit":
+            self.dismiss("save-quit")
+        elif event.button.id == "quit-now":
+            self.dismiss("quit")
+        elif event.button.id == "cancel-btn":
+            self.dismiss(None)
+
+    def action_quit_now(self) -> None:
+        self.dismiss("quit")
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 # ---------------------------------------------------------------------------
@@ -954,15 +1008,11 @@ class DreagothApp(App):
         if player.gold > 0:
             # Collect all equipment and inventory items
             dropped_items: list[Item] = []
-            if player.weapon is not None:
-                dropped_items.append(player.weapon)
-                player.weapon = None
-            if player.armor is not None:
-                dropped_items.append(player.armor)
-                player.armor = None
-            if player.shield is not None:
-                dropped_items.append(player.shield)
-                player.shield = None
+            for slot_name in ("weapon",) + player.EQUIPMENT_SLOTS:
+                item = getattr(player, slot_name)
+                if item is not None:
+                    dropped_items.append(item)
+                    setattr(player, slot_name, None)
             dropped_items.extend(player.inventory)
             player.inventory = []
 
@@ -1314,7 +1364,7 @@ class DreagothApp(App):
             return
 
         self.push_screen(
-            UseItemScreen(consumables),
+            UseItemScreen(consumables, gs.player.level),
             self._on_item_used,
         )
 
@@ -1443,4 +1493,13 @@ class DreagothApp(App):
     # Quit
     # ------------------------------------------------------------------
     def action_quit_game(self) -> None:
-        self.exit()
+        def _handle_quit(result: str | None) -> None:
+            if result == "save-quit":
+                autosave(self.game_state)
+                self._log("Game saved.", style="bright_green")
+                self.exit()
+            elif result == "quit":
+                self.exit()
+            # None = cancelled, do nothing
+
+        self.push_screen(QuitScreen(), callback=_handle_quit)

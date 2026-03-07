@@ -131,7 +131,7 @@ class TestBuffs:
         char = create_character("Test", "mage", "human")
         base_ac = char.ac
         char.active_buffs.append(ActiveBuff("shield", "ac", 4, None))
-        assert char.ac == base_ac + 4
+        assert char.ac == base_ac - 4
 
     def test_buff_attack_bonus(self):
         char = create_character("Test", "cleric", "human")

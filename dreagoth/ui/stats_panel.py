@@ -80,12 +80,23 @@ class StatsPanel(Widget):
             text.append(f"+{player.attack_bonus}\n", style="bold white")
 
             # Equipment
-            wpn = player.weapon.name if player.weapon else "Fists"
-            arm = player.armor.name if player.armor else "None"
-            text.append("Wpn ", style="grey50")
-            text.append(f"{wpn}\n", style="white")
-            text.append("Arm ", style="grey50")
-            text.append(f"{arm}\n", style="white")
+            _equip_display = [
+                ("Wpn", player.weapon, "Fists"),
+                ("Arm", player.armor, None),
+                ("Shd", player.shield, None),
+                ("Hlm", player.helmet, None),
+                ("Bts", player.boots, None),
+                ("Glv", player.gloves, None),
+                ("Rng", player.ring, None),
+                ("Aml", player.amulet, None),
+            ]
+            for label, item, fallback in _equip_display:
+                if item:
+                    text.append(f"{label} ", style="grey50")
+                    text.append(f"{item.name}\n", style="white")
+                elif fallback:
+                    text.append(f"{label} ", style="grey50")
+                    text.append(f"{fallback}\n", style="grey37")
             text.append("\n")
 
             # Gold and XP

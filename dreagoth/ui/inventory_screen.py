@@ -29,7 +29,7 @@ class InventoryScreen(ModalScreen[str | None]):
         background: $surface;
     }
     #inv-list {
-        height: auto;
+        height: 1fr;
         max-height: 20;
     }
     #inv-box Button {
@@ -66,31 +66,45 @@ class InventoryScreen(ModalScreen[str | None]):
         ol.clear_options()
 
         # Equipped items — selecting unequips
+        _equipped_display = [
+            ("weapon",  "Wielding"),
+            ("armor",   "Wearing"),
+            ("shield",  "Shield"),
+            ("helmet",  "Helmet"),
+            ("boots",   "Boots"),
+            ("gloves",  "Gloves"),
+            ("ring",    "Ring"),
+            ("amulet",  "Amulet"),
+        ]
         has_equipped = False
-        if p.weapon:
-            ol.add_option(Option(f"Wielding: {p.weapon.display_info}", id="unequip-weapon"))
-            has_equipped = True
-        if p.armor:
-            ol.add_option(Option(f"Wearing:  {p.armor.display_info}", id="unequip-armor"))
-            has_equipped = True
-        if p.shield:
-            ol.add_option(Option(f"Shield:   {p.shield.display_info}", id="unequip-shield"))
-            has_equipped = True
+        for slot_name, label in _equipped_display:
+            item = getattr(p, slot_name, None)
+            if item:
+                ol.add_option(Option(
+                    f"{label + ':':<9s} {item.display_info}",
+                    id=f"unequip-{slot_name}",
+                ))
+                has_equipped = True
 
         # Visual separator between equipped and backpack
         if has_equipped and p.inventory:
             ol.add_option(Option("\u2500\u2500\u2500 Backpack \u2500\u2500\u2500", id="sep", disabled=True))
 
         # Backpack items — selecting equips (if equippable) or shows info
+        _slot_tags = {
+            "": "", "body": " [armor]", "shield": " [shield]",
+            "head": " [helmet]", "boots": " [boots]",
+            "gloves": " [gloves]", "ring": " [ring]", "amulet": " [amulet]",
+        }
         for i, item in enumerate(p.inventory):
             tag = ""
             if item.is_weapon:
                 tag = " [weapon]"
-            elif item.is_armor:
-                tag = " [armor]"
             elif item.is_consumable:
                 tag = " [use]"
-            ol.add_option(Option(f"{item.display_info}{tag}", id=f"inv-{i}"))
+            elif item.slot:
+                tag = _slot_tags.get(item.slot, f" [{item.slot}]")
+            ol.add_option(Option(f"{item.display_info_at(p.level)}{tag}", id=f"inv-{i}"))
 
         if not has_equipped and not p.inventory:
             ol.add_option(Option("Nothing in your possession.", id="empty"))
@@ -110,26 +124,19 @@ class InventoryScreen(ModalScreen[str | None]):
 
         p = self._player
 
-        if opt_id == "unequip-weapon" and p.weapon:
-            p.inventory.append(p.weapon)
-            name = p.weapon.name
-            p.weapon = None
-            self._dismiss_with(f"You stow the {name}.", idx)
-        elif opt_id == "unequip-armor" and p.armor:
-            p.inventory.append(p.armor)
-            name = p.armor.name
-            p.armor = None
-            self._dismiss_with(f"You remove the {name}.", idx)
-        elif opt_id == "unequip-shield" and p.shield:
-            p.inventory.append(p.shield)
-            name = p.shield.name
-            p.shield = None
-            self._dismiss_with(f"You put away the {name}.", idx)
+        if opt_id.startswith("unequip-"):
+            slot_name = opt_id[8:]  # e.g. "weapon", "armor", "helmet"
+            item = getattr(p, slot_name, None)
+            if item:
+                p.inventory.append(item)
+                name = item.name
+                setattr(p, slot_name, None)
+                self._dismiss_with(f"You remove the {name}.", idx)
         elif opt_id.startswith("inv-"):
             item_idx = int(opt_id[4:])
             if item_idx < len(p.inventory):
                 item = p.inventory[item_idx]
-                if item.is_weapon or item.is_armor:
+                if item.is_equippable:
                     msg = p.equip(item)
                     self._dismiss_with(msg or f"Equipped {item.name}.", idx)
                 elif item.is_consumable:

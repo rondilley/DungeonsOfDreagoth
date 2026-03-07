@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import ClassVar
 from dreagoth.core.dice import ability_roll
 from dreagoth.entities.item import Item, roll_dice
 from dreagoth.combat.spells import SpellSlots, ActiveBuff
@@ -74,6 +75,11 @@ class Character:
     weapon: Item | None = None
     armor: Item | None = None
     shield: Item | None = None
+    helmet: Item | None = None
+    boots: Item | None = None
+    gloves: Item | None = None
+    ring: Item | None = None
+    amulet: Item | None = None
 
     # Spells
     spell_slots: SpellSlots = field(default_factory=SpellSlots)
@@ -98,23 +104,34 @@ class Character:
     def con_mod(self) -> int:
         return self.ability_modifier(self.constitution)
 
+    # All equipment slots that contribute to AC / attack
+    EQUIPMENT_SLOTS: ClassVar[tuple[str, ...]] = ("armor", "shield", "helmet", "boots", "gloves", "ring", "amulet")
+
     @property
     def ac(self) -> int:
-        """Armor class: base 10 + armor + shield + dex modifier + buff."""
-        total = 10 + self.dex_mod
-        if self.armor:
-            total += self.armor.ac_bonus
-        if self.shield:
-            total += self.shield.ac_bonus
-        total += self.buff_ac_bonus()
+        """Armor class (descending, classic D&D): 10 - dex_mod - equipment - buffs.
+
+        Lower AC = harder to hit. Unarmored = 10, Plate + Shield = 2.
+        """
+        total = 10 - self.dex_mod
+        for slot_name in self.EQUIPMENT_SLOTS:
+            item = getattr(self, slot_name)
+            if item:
+                total -= item.ac_bonus
+        total -= self.buff_ac_bonus()
         return total
 
     @property
     def attack_bonus(self) -> int:
-        """Total attack bonus: level-based + strength modifier + buff."""
+        """Total attack bonus: level-based + strength modifier + equipment + buff."""
         class_data = CLASS_DATA[self.char_class]
         level_bonus = int(self.level * class_data["attack_bonus_per_level"])
-        return level_bonus + self.str_mod + self.buff_attack_bonus()
+        equip_bonus = sum(
+            getattr(self, s).attack_mod
+            for s in self.EQUIPMENT_SLOTS
+            if getattr(self, s)
+        )
+        return level_bonus + self.str_mod + equip_bonus + self.buff_attack_bonus()
 
     @property
     def damage_dice(self) -> str:
@@ -197,41 +214,60 @@ class Character:
             b for b in self.active_buffs if b.remaining_turns is not None
         ]
 
+    # Mapping from item slot value to (character field, equip verb)
+    _SLOT_MAP: ClassVar[dict[str, tuple[str, str]]] = {
+        "body": ("armor", "You don the {name}."),
+        "shield": ("shield", "You ready the {name}."),
+        "head": ("helmet", "You put on the {name}."),
+        "boots": ("boots", "You pull on the {name}."),
+        "gloves": ("gloves", "You slip on the {name}."),
+        "ring": ("ring", "You slide on the {name}."),
+        "amulet": ("amulet", "You clasp the {name}."),
+    }
+
     def equip(self, item: Item) -> str | None:
         """Equip an item from inventory. Returns message or None."""
         if item not in self.inventory:
             return None
         if item.is_weapon:
-            if self.char_class not in item.classes:
+            if item.classes and self.char_class not in item.classes:
                 return f"A {self.char_class} cannot wield a {item.name}."
             if self.weapon:
                 self.inventory.append(self.weapon)
             self.inventory.remove(item)
             self.weapon = item
-            return f"You wield the {item.name}."
-        elif item.is_armor:
-            if self.char_class not in item.classes:
+            msg = f"You wield the {item.name}."
+            # Two-handed weapons force shield unequip
+            if item.two_handed and self.shield:
+                self.inventory.append(self.shield)
+                msg += f" You put away the {self.shield.name}."
+                self.shield = None
+            return msg
+        if item.slot in self._SLOT_MAP:
+            # Block shield equip if wielding a two-handed weapon
+            if item.slot == "shield" and self.weapon and self.weapon.two_handed:
+                return f"You can't use a shield with the {self.weapon.name} (two-handed)."
+            if item.classes and self.char_class not in item.classes:
                 return f"A {self.char_class} cannot wear {item.name}."
-            slot = item.slot
-            if slot == "body":
-                if self.armor:
-                    self.inventory.append(self.armor)
-                self.inventory.remove(item)
-                self.armor = item
-                return f"You don the {item.name}."
-            elif slot == "shield":
-                if self.shield:
-                    self.inventory.append(self.shield)
-                self.inventory.remove(item)
-                self.shield = item
-                return f"You ready the {item.name}."
+            field_name, msg_template = self._SLOT_MAP[item.slot]
+            current = getattr(self, field_name)
+            if current:
+                self.inventory.append(current)
+            self.inventory.remove(item)
+            setattr(self, field_name, item)
+            return msg_template.format(name=item.name)
         return f"You can't equip {item.name}."
 
     def use_item(self, item: Item) -> tuple[str, int] | None:
-        """Use a consumable item. Returns (message, healed) or None."""
+        """Use a consumable item. Returns (message, healed) or None.
+
+        Healing scales with character level: base roll + level bonus.
+        """
         if item not in self.inventory or not item.is_consumable:
             return None
-        healed = self.heal(roll_dice(item.heal_dice))
+        base = roll_dice(item.heal_dice)
+        level_bonus = self.level - 1
+        healed = self.heal(base + level_bonus)
         self.inventory.remove(item)
         msg = f"You use {item.name}, healing {healed} HP. ({self.hp}/{self.max_hp} HP)"
         return msg, healed

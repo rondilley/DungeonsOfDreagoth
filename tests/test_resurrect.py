@@ -42,15 +42,11 @@ def _resurrect(gs: GameState) -> bool:
 
     if player.gold > 0:
         dropped_items: list[Item] = []
-        if player.weapon is not None:
-            dropped_items.append(player.weapon)
-            player.weapon = None
-        if player.armor is not None:
-            dropped_items.append(player.armor)
-            player.armor = None
-        if player.shield is not None:
-            dropped_items.append(player.shield)
-            player.shield = None
+        for slot_name in ("weapon",) + player.EQUIPMENT_SLOTS:
+            item = getattr(player, slot_name)
+            if item is not None:
+                dropped_items.append(item)
+                setattr(player, slot_name, None)
         dropped_items.extend(player.inventory)
         player.inventory = []
 
@@ -146,9 +142,13 @@ class TestResurrectEquipmentDrop:
         weapon = equipment_db.get("sword_long")
         armor = equipment_db.get("chain")
         shield = equipment_db.get("shield_large")
+        helmet = equipment_db.get("helmet_small")
+        boots = equipment_db.get("boots_leather")
         gs.player.weapon = weapon
         gs.player.armor = armor
         gs.player.shield = shield
+        gs.player.helmet = helmet
+        gs.player.boots = boots
 
         _resurrect(gs)
 
@@ -157,7 +157,9 @@ class TestResurrectEquipmentDrop:
         assert weapon in pile
         assert armor in pile
         assert shield in pile
-        assert len(pile) == 3
+        assert helmet in pile
+        assert boots in pile
+        assert len(pile) == 5
 
     def test_inventory_items_dropped(self):
         gs = _make_game_state(gold=500, level=1)
@@ -175,6 +177,11 @@ class TestResurrectEquipmentDrop:
         gs.player.weapon = equipment_db.get("sword_long")
         gs.player.armor = equipment_db.get("chain")
         gs.player.shield = equipment_db.get("shield_large")
+        gs.player.helmet = equipment_db.get("helmet_small")
+        gs.player.boots = equipment_db.get("boots_leather")
+        gs.player.gloves = equipment_db.get("gauntlets_iron")
+        gs.player.ring = equipment_db.get("ring_protection")
+        gs.player.amulet = equipment_db.get("amulet_protection")
         gs.player.inventory = [equipment_db.get("potion_healing")]
 
         _resurrect(gs)
@@ -182,13 +189,18 @@ class TestResurrectEquipmentDrop:
         assert gs.player.weapon is None
         assert gs.player.armor is None
         assert gs.player.shield is None
+        assert gs.player.helmet is None
+        assert gs.player.boots is None
+        assert gs.player.gloves is None
+        assert gs.player.ring is None
+        assert gs.player.amulet is None
         assert gs.player.inventory == []
 
 
 class TestResurrectNoItems:
     def test_no_items_no_pile(self):
         gs = _make_game_state(gold=500, level=1)
-        # No weapon, armor, shield, or inventory
+        # No equipment or inventory
         _resurrect(gs)
 
         assert len(gs.current_entities.treasure_piles) == 0

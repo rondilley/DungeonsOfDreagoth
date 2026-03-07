@@ -23,14 +23,14 @@ python -m dreagoth
 | `<` `,` | Stairs up (heals + rests) | `>` `.` | Stairs down (heals + rests) |
 | `V` | Toggle map/first-person | `Ctrl+S` | Save game |
 | `Ctrl+L` | Load game | `:` | Command input mode |
-| `Q` | Quit | | |
+| `Q` | Quit (confirm: Save & Quit / Quit / Cancel) | | |
 
 ## Features
 
 - **Dungeon Generation** — Procedural 80x40 grid ported from 1991 QBasic, 25 rooms/level, MST-connected corridors, multi-level stair traversal, locked and magically locked doors
 - **Fog of War** — Recursive 8-octant shadowcasting FOV, extended by Light spell
 - **Character System** — 4 classes (Fighter/Mage/Thief/Cleric), 4 races (Human/Elf/Dwarf/Halfling), D&D ability scores (4d6 drop lowest), racial modifiers
-- **Equipment** — 61 items across weapons, armor, clothing, provisions, consumables, and misc. Equipment slots (weapon/armor/shield), class restrictions, gold economy
+- **Equipment** — 76 items across weapons, armor, accessories, clothing, provisions, consumables, and misc. 8 equipment slots (weapon, armor, shield, helmet, boots, gloves, ring, amulet), class restrictions, gold economy
 - **Combat** — Turn-based D&D-style: d20 attack rolls, initiative, critical hits (2x damage on nat 20), fumbles (nat 1), monster special abilities (poison, paralyze, drain, regen)
 - **Monsters** — 14 types scaling with dungeon depth: Giant Rats and Kobolds on level 1 up to Trolls and Minotaurs on level 10. Loot drops and XP rewards
 - **Spells** — 12 spells (6 Mage, 6 Cleric) with 3-level slot progression. Combat spells and utility buffs (Light extends FOV). Slots restored on stair rest
@@ -41,7 +41,7 @@ python -m dreagoth
 - **First-Person View** — ASCII corridor renderer (Tab toggles with map view), minimap in stats panel
 - **Command Parser** — 21 commands with aliases and tab completion, Vi-style `:` input mode
 - **Resurrection** — Gold-based revival on death: equipment dropped as treasure pile, respawn at stairs with half HP. No gold = permanent death
-- **Audio** — Event-driven retro sound effects (19 WAV tones, stdlib-generated). Fallback chain: playsound3 → winsound → bell → silent
+- **Audio** — Event-driven retro sound effects (19 WAV tones, stdlib-generated). Fallback chain: playsound3 → winsound → aplay → bell → silent
 - **TUI** — Rich terminal interface with map/first-person panel, character stats sidebar (HP bar, abilities, equipment, minimap, spell slots), scrollable narrative log, and command bar
 
 ## Tech Stack
@@ -52,7 +52,7 @@ python -m dreagoth
 | Dungeon grid | numpy uint8 arrays |
 | AI DM | Anthropic SDK (Claude Sonnet) |
 | Schema validation | pydantic |
-| Audio | playsound3 (optional), winsound, stdlib WAV generation |
+| Audio | playsound3 (optional), winsound, aplay (ALSA), stdlib WAV generation |
 | Persistence | SQLite (AI cache), JSON (save games) |
 | Tests | pytest |
 
@@ -64,7 +64,7 @@ dreagoth/
   dungeon/       # Generation: tiles, rooms, corridors, FOV, generator, populator
   character/     # Player: character creation, classes, races, leveling
   combat/        # Turn-based D&D combat engine, spells
-  entities/      # Items (61), monsters (14), NPCs (8), equipment database
+  entities/      # Items (76), monsters (14), NPCs (8), equipment database
   ai/            # AI DM: Anthropic client, narration, SQLite cache, fallbacks
   quest/         # Quest system: kill monsters, explore depth
   audio/         # Sound manager, retro tone generator

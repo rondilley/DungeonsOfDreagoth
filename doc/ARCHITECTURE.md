@@ -127,9 +127,9 @@ Core player data and mechanics:
 - **4 classes** — Fighter (1d10 HP, +1 atk/level), Mage (1d4 HP, +0.5 atk/level), Thief (1d6 HP), Cleric (1d8 HP). Defined in `CLASS_DATA` dict
 - **4 races** — Human (no mods), Elf (+1 DEX/INT, -1 CON), Dwarf (+2 CON, -1 CHA), Halfling (+2 DEX, -1 STR). Defined in `RACE_DATA` dict
 - **6 ability scores** — rolled with 4d6-drop-lowest, modified by race
-- **AC calculation** — 10 + dex_mod + armor.ac_bonus + shield.ac_bonus
-- **Attack bonus** — level * class multiplier + str_mod
-- **Equipment slots** — weapon, armor (body), shield. Class restrictions enforced on equip
+- **AC calculation** — 10 + dex_mod + sum of all equipment ac_bonus + buffs
+- **Attack bonus** — level * class multiplier + str_mod + sum of equipment attack_mod + buffs
+- **8 equipment slots** — weapon, armor (body), shield, helmet (head), boots, gloves, ring, amulet. Class restrictions enforced on equip. Slot-to-field mapping in `_SLOT_MAP`
 - **Leveling** — 10-level XP table. Level-up adds hit die + CON mod to max HP
 - **Spell slots** — 3-level slot progression for Mage and Cleric classes
 
@@ -137,8 +137,8 @@ Core player data and mechanics:
 
 ### Items and Equipment (`entities/item.py`)
 
-- **`Item` dataclass** — id, name, category, price/currency, damage dice (weapons), AC bonus (armor), slot, class restrictions, consumable/heal_dice fields
-- **`EquipmentDB` singleton** — loads `data/equipment.json` (61 items: weapons, armor, clothing, provisions, misc, 5 consumable healing items)
+- **`Item` dataclass** — id, name, category, price/currency, damage dice (weapons), AC bonus (armor/accessories), attack_mod (accessories), slot, class restrictions, consumable/heal_dice fields
+- **`EquipmentDB` singleton** — loads `data/equipment.json` (76 items: weapons, armor, accessories, clothing, provisions, misc, 5 consumable healing items). Categories include helmets, boots, gloves, rings, and amulets
 - **`parse_dice()` / `roll_dice()`** — parses "2d6+1" format strings and rolls them
 - **`random_treasure(tier)`** — generates loot appropriate to dungeon depth
 - **`for_merchant_tier()`** — filters items appropriate for NPC shops
@@ -301,7 +301,13 @@ All methods share the same system prompt establishing tone (dark fantasy, second
 
 ### Sound Manager (`audio/sound_manager.py`)
 
-Event-driven singleton connected via the event bus. Fallback chain: playsound3 → winsound → bell → silent.
+Event-driven singleton connected via the event bus. Fallback chain: playsound3 → winsound → aplay → bell → silent.
+
+- **playsound3** — cross-platform, optional pip extra `[audio]`
+- **winsound** — Windows built-in, non-blocking via `SND_ASYNC`
+- **aplay** — ALSA utils, available on nearly all Linux systems with no pip dependencies
+- **bell** — terminal bell (`\a`), last-resort audible fallback
+- **silent** — no audio output
 
 **`audio/tone_generator.py`** — creates 19 retro WAV files using stdlib only. Config in `data/sounds.json` (21 event-to-sound mappings). Optional `[audio]` pip extra for playsound3.
 
@@ -356,6 +362,7 @@ Widgets hold a reference to `GameState` (set via `set_game_state()`). The app ca
 - **`MerchantScreen`** — OptionList-based buy/sell interface
 - **`InventoryScreen`** — OptionList-based equip/unequip/use
 - **`UseItemScreen`** — Consumable item selection
+- **`QuitScreen`** — Quit confirmation with Save & Quit, Quit Without Saving, and Cancel options
 
 ### Key Bindings
 
@@ -376,7 +383,7 @@ Widgets hold a reference to `GameState` (set via `set_game_state()`). The app ca
 | Ctrl+S | Save game | Any time |
 | Ctrl+L | Load game | Any time |
 | : | Command input mode | Any time |
-| Q | Quit | Any time |
+| Q | Quit (confirmation modal: Save & Quit / Quit / Cancel) | Any time |
 
 ## Data Flow
 

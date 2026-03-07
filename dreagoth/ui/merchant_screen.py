@@ -26,7 +26,7 @@ class MerchantScreen(ModalScreen[None]):
         background: $surface;
     }
     #merchant-list {
-        height: auto;
+        height: 1fr;
         max-height: 18;
     }
     #merchant-box Button {
@@ -73,7 +73,7 @@ class MerchantScreen(ModalScreen[None]):
                 ol.add_option(Option("Nothing for sale.", id="empty"))
                 ol.focus()
                 return
-            for i, item in enumerate(stock[:12]):
+            for i, item in enumerate(stock):
                 ol.add_option(
                     Option(f"{i+1}. {item.display_info}", id=f"buy-{i}")
                 )
@@ -84,7 +84,7 @@ class MerchantScreen(ModalScreen[None]):
                 ol.add_option(Option("Nothing to sell.", id="empty"))
                 ol.focus()
                 return
-            for i, item in enumerate(inv[:12]):
+            for i, item in enumerate(inv):
                 sell_price = max(1, item.gold_value // 2)
                 ol.add_option(
                     Option(f"{i+1}. {item.display_info} \u2192 {sell_price}G", id=f"sell-{i}")
