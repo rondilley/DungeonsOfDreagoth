@@ -9,6 +9,7 @@ from dreagoth.dungeon.dungeon_level import DungeonLevel
 from dreagoth.dungeon.tiles import Tile, is_door
 from dreagoth.entities.monster import Monster, monster_db
 from dreagoth.entities.item import Item, equipment_db
+from dreagoth.entities.magic_items import roll_magic_loot
 from dreagoth.entities.npc import NPC, npc_db
 
 
@@ -111,6 +112,10 @@ def populate_level(level: DungeonLevel, depth: int) -> LevelEntities:
                 loot = equipment_db.random_treasure(min(4, depth // 2))
                 if loot:
                     entities.treasure_piles[(tx, ty)] = loot
+            # Chance for a magic item in the chest
+            magic_item = roll_magic_loot(depth, min(4, depth // 2))
+            if magic_item:
+                entities.treasure_piles.setdefault((tx, ty), []).append(magic_item)
 
     # Place 1-3 NPCs in non-stair, non-monster rooms
     npc_rooms = [

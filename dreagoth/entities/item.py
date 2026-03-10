@@ -7,6 +7,7 @@ import re
 import random
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 DATA_DIR = Path(__file__).parent.parent / "data"
 
@@ -50,6 +51,9 @@ class Item:
     heal_dice: str = ""
     regen_dice: str = ""   # heal-over-time per turn (e.g. "1d2")
     regen_turns: int = 0   # how many turns the regen lasts
+    # Rarity: common (white), magic (green), rare (blue), epic (purple), unique (orange)
+    rarity: str = "common"
+    lore: str = ""
 
     @property
     def gold_value(self) -> int:
@@ -60,6 +64,18 @@ class Item:
             return max(1, self.price // 10)
         else:
             return max(1, self.price // 100)
+
+    RARITY_COLORS: ClassVar[dict[str, str]] = {
+        "common": "",
+        "magic": "green",
+        "rare": "dodger_blue2",
+        "epic": "medium_purple",
+        "unique": "dark_orange",
+    }
+
+    @property
+    def rarity_color(self) -> str:
+        return self.RARITY_COLORS.get(self.rarity, "")
 
     @property
     def is_weapon(self) -> bool:
@@ -95,6 +111,8 @@ class Item:
     def display_info_at(self, level: int = 1) -> str:
         """Display info with heal values scaled to the given character level."""
         parts = [self.name]
+        if self.rarity != "common":
+            parts.insert(0, f"[{self.rarity_color}]\u2726[/{self.rarity_color}]")
         if self.two_handed:
             parts.append("[2H]")
         if self.damage:

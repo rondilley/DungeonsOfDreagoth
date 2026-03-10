@@ -1,0 +1,196 @@
+{
+  "unique_items": [
+    {
+      "id": "unique_frostbrand",
+      "name": "Frostbrand",
+      "category": "weapons",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "A blade of eternal ice, forged in the heart of a dying glacier.",
+      "damage": "2d6+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter"
+      ]
+    },
+    {
+      "id": "unique_staff_of_the_archmage",
+      "name": "Staff of the Archmage",
+      "category": "weapons",
+      "price": 600,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Once wielded by Theron the Elder, its runes still pulse with arcane power.",
+      "damage": "1d8+2",
+      "weapon_type": "melee",
+      "classes": [
+        "mage"
+      ],
+      "attack_mod": 3,
+      "two_handed": true
+    },
+    {
+      "id": "unique_nightfall",
+      "name": "Nightfall",
+      "category": "weapons",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "A dagger so dark it seems to drink the light around it.",
+      "damage": "1d8+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter",
+        "thief"
+      ]
+    },
+    {
+      "id": "unique_dreagoth_hammer",
+      "name": "Hammer of Dreagoth",
+      "category": "weapons",
+      "price": 700,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged by the dwarven lords who first delved these cursed halls.",
+      "damage": "2d8+2",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter",
+        "cleric"
+      ],
+      "two_handed": true
+    },
+    {
+      "id": "unique_crown_of_shadows",
+      "name": "Crown of Shadows",
+      "category": "armor",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "A circlet that writhes with living darkness, shielding the wearer from harm.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "head"
+    },
+    {
+      "id": "unique_dragonscale_mail",
+      "name": "Dragonscale Mail",
+      "category": "armor",
+      "price": 800,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Armor crafted from the scales of an ancient black dragon.",
+      "classes": [
+        "fighter"
+      ],
+      "ac_bonus": 8,
+      "slot": "body"
+    },
+    {
+      "id": "unique_boots_of_haste",
+      "name": "Boots of Haste",
+      "category": "armor",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "The wearer moves with supernatural speed, a blur to the naked eye.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "boots"
+    },
+    {
+      "id": "unique_gauntlets_of_ogre_power",
+      "name": "Gauntlets of Ogre Power",
+      "category": "armor",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "These gauntlets grant their wearer the crushing strength of an ogre.",
+      "classes": [
+        "fighter",
+        "cleric"
+      ],
+      "ac_bonus": 1,
+      "attack_mod": 4,
+      "slot": "gloves"
+    },
+    {
+      "id": "unique_ring_of_three_wishes",
+      "name": "Ring of Three Wishes",
+      "category": "accessories",
+      "price": 1000,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "An ancient ring of impossible power. Its wishes were spent long ago, but its magic lingers.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 2,
+      "slot": "ring"
+    },
+    {
+      "id": "unique_amulet_of_the_void",
+      "name": "Amulet of the Void",
+      "category": "accessories",
+      "price": 600,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "A black gem that whispers secrets of the space between worlds.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_shield_of_the_sentinel",
+      "name": "Shield of the Sentinel",
+      "category": "armor",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This shield has never been breached. Its bearers have all died of old age.",
+      "classes": [
+        "fighter",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "shield"
+    },
+    {
+      "id": "unique_cloak_of_elvenkind",
+      "name": "Cloak of Elvenkind",
+      "category": "armor",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Woven from moonlight and spider silk by elven artisans of a forgotten age.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "body"
+    }
+  ]
+}

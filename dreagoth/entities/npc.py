@@ -57,6 +57,7 @@ class NPCDB:
         for n in data["npcs"]:
             t = NPCTemplate(**n)
             self.templates[t.id] = t
+        self._max_defined_level = max(t.max_level for t in self.templates.values())
 
     def spawn(self, template_id: str, x: int, y: int) -> NPC:
         t = self.templates[template_id]
@@ -68,10 +69,12 @@ class NPCDB:
         )
 
     def eligible_for_level(self, depth: int) -> list[NPCTemplate]:
+        # Clamp to highest defined level so deep floors still have NPCs
+        clamped = min(depth, self._max_defined_level)
         if depth not in self._eligible_cache:
             self._eligible_cache[depth] = [
                 t for t in self.templates.values()
-                if t.min_level <= depth <= t.max_level
+                if t.min_level <= clamped <= t.max_level
             ]
         return self._eligible_cache[depth]
 

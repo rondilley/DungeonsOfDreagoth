@@ -15,6 +15,7 @@ from dreagoth.dungeon.populator import LevelEntities
 from dreagoth.character.character import Character
 from dreagoth.combat.spells import SpellSlots, ActiveBuff
 from dreagoth.entities.item import Item, equipment_db
+from dreagoth.entities.magic_items import unique_item_db
 from dreagoth.entities.monster import Monster, monster_db
 from dreagoth.entities.npc import NPC
 from dreagoth.quest.quest import Quest, QuestLog, QuestType, QuestStatus, QuestReward
@@ -59,11 +60,38 @@ def _slot_path(slot: int) -> Path:
 # ---------------------------------------------------------------------------
 
 def _serialize_item(item: Item) -> dict:
-    return {"id": item.id}
+    if item.rarity == "common":
+        return {"id": item.id}
+    # Magic/rare/epic/unique items need full serialization
+    return {
+        "id": item.id, "name": item.name, "category": item.category,
+        "price": item.price, "currency": item.currency,
+        "damage": item.damage, "weapon_type": item.weapon_type,
+        "range": item.range, "classes": item.classes,
+        "ac_bonus": item.ac_bonus, "attack_mod": item.attack_mod,
+        "slot": item.slot, "two_handed": item.two_handed,
+        "consumable": item.consumable, "heal_dice": item.heal_dice,
+        "regen_dice": item.regen_dice, "regen_turns": item.regen_turns,
+        "rarity": item.rarity, "lore": item.lore,
+    }
 
 
 def _deserialize_item(data: dict) -> Item | None:
-    return equipment_db.get(data["id"])
+    rarity = data.get("rarity", "common")
+    if rarity == "common":
+        return equipment_db.get(data["id"])
+    # Reconstruct magic/rare/epic/unique item from saved fields
+    return Item(
+        id=data["id"], name=data["name"], category=data["category"],
+        price=data.get("price", 0), currency=data.get("currency", "G"),
+        damage=data.get("damage", ""), weapon_type=data.get("weapon_type", ""),
+        range=data.get("range", 0), classes=data.get("classes", []),
+        ac_bonus=data.get("ac_bonus", 0), attack_mod=data.get("attack_mod", 0),
+        slot=data.get("slot", ""), two_handed=data.get("two_handed", False),
+        consumable=data.get("consumable", False), heal_dice=data.get("heal_dice", ""),
+        regen_dice=data.get("regen_dice", ""), regen_turns=data.get("regen_turns", 0),
+        rarity=rarity, lore=data.get("lore", ""),
+    )
 
 
 def _serialize_character(char: Character) -> dict:
@@ -392,6 +420,7 @@ def save_game(gs: GameState, slot: int) -> bool:
                 for d, doors in gs.opened_doors.items()
             },
             "quest_log": _serialize_quest_log(gs.quest_log) if gs.quest_log else None,
+            "unique_items_dropped": list(unique_item_db.dropped_ids),
         }
         with open(_slot_path(slot), "w") as f:
             json.dump(data, f)
@@ -439,6 +468,9 @@ def load_game(slot: int) -> GameState | None:
             gs.quest_log = _deserialize_quest_log(data["quest_log"])
         else:
             gs.quest_log = QuestLog()
+
+        # Restore unique item tracking
+        unique_item_db.dropped_ids = set(data.get("unique_items_dropped", []))
 
         return gs
     except Exception:

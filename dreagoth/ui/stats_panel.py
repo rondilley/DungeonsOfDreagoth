@@ -93,7 +93,8 @@ class StatsPanel(Widget):
             for label, item, fallback in _equip_display:
                 if item:
                     text.append(f"{label} ", style="grey50")
-                    text.append(f"{item.name}\n", style="white")
+                    style = item.rarity_color or "white"
+                    text.append(f"{item.name}\n", style=style)
                 elif fallback:
                     text.append(f"{label} ", style="grey50")
                     text.append(f"{fallback}\n", style="grey37")

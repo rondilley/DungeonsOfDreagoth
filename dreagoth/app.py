@@ -26,6 +26,7 @@ from dreagoth.combat.combat_engine import CombatState, CombatResult, AttackOutco
 from dreagoth.audio.sound_manager import sound_manager
 from dreagoth.combat.spells import spell_db, SpellTemplate, ActiveBuff
 from dreagoth.entities.item import equipment_db, Item
+from dreagoth.entities.magic_items import roll_magic_loot, generate_startup_uniques
 from dreagoth.quest.quest import QuestLog, QuestType, QuestStatus, generate_quest
 from dreagoth.core.save_load import save_game, load_game, list_saves, autosave
 from dreagoth.ai.dm import dm
@@ -433,6 +434,11 @@ class DreagothApp(App):
 
         # Wire up sound effects
         sound_manager.subscribe_to_events()
+
+        # Generate new unique items in the background (uses AI if available)
+        threading.Thread(
+            target=generate_startup_uniques, daemon=True,
+        ).start()
 
         # Show character creation
         self.push_screen(CharacterCreationScreen(), self._on_character_created)
@@ -989,6 +995,15 @@ class DreagothApp(App):
                 msg = gs.player.pickup(item)
                 self._log(msg, style="bright_yellow")
 
+        # Magic item drop
+        magic_item = roll_magic_loot(gs.current_depth, monster.loot_tier)
+        if magic_item:
+            msg = gs.player.pickup(magic_item)
+            color = magic_item.rarity_color or "bright_yellow"
+            self._log(msg, style=f"bold {color}")
+            if magic_item.lore:
+                self._log(f"  \"{magic_item.lore}\"", style="italic grey70")
+
         # Quest progress
         if gs.quest_log:
             completed = gs.quest_log.on_monster_killed(monster.template_id)
@@ -1115,7 +1130,11 @@ class DreagothApp(App):
             item_names = []
             for item in items:
                 msg = gs.player.pickup(item)
-                self._log(msg, style="bright_yellow")
+                if item.rarity != "common":
+                    color = item.rarity_color or "bright_yellow"
+                    self._log(msg, style=f"bold {color}")
+                else:
+                    self._log(msg, style="bright_yellow")
                 bus.publish("pickup_item")
                 item_names.append(item.name)
             # AI treasure narration (non-blocking)
