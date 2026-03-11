@@ -99,6 +99,8 @@ class MapPanel(Widget):
             for t in ents.traps:
                 if t.detected and not t.triggered:
                     trap_positions[(t.x, t.y)] = ("^", "bold bright_magenta")
+                elif t.detected and t.triggered and t.trap_type.value in ("pit", "trap_door"):
+                    trap_positions[(t.x, t.y)] = ("o", "grey50")
 
         # Rope connections on this level
         ropes = gs.rope_connections.get(gs.current_depth, {})

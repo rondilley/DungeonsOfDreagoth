@@ -2,12 +2,27 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
 from textual.widgets import Static, Button, Label, OptionList
 from textual.widgets.option_list import Option
 
 from dreagoth.entities.item import equipment_db, Item
+
+
+def _group_items(items: list[Item]) -> list[tuple[Item, int]]:
+    """Group identical items by id, preserving first-seen order."""
+    counts: Counter[str] = Counter()
+    first: dict[str, Item] = {}
+    order: list[str] = []
+    for item in items:
+        counts[item.id] += 1
+        if item.id not in first:
+            first[item.id] = item
+            order.append(item.id)
+    return [(first[item_id], counts[item_id]) for item_id in order]
 
 
 class MerchantScreen(ModalScreen[None]):
@@ -84,10 +99,15 @@ class MerchantScreen(ModalScreen[None]):
                 ol.add_option(Option("Nothing to sell.", id="empty"))
                 ol.focus()
                 return
-            for i, item in enumerate(inv):
+            grouped = _group_items(inv)
+            for i, (item, qty) in enumerate(grouped):
                 sell_price = max(1, item.gold_value // 2)
+                qty_str = f" x{qty}" if qty > 1 else ""
                 ol.add_option(
-                    Option(f"{i+1}. {item.display_info} \u2192 {sell_price}G", id=f"sell-{i}")
+                    Option(
+                        f"{i+1}. {item.display_info}{qty_str} \u2192 {sell_price}G",
+                        id=f"sell-{item.id}",
+                    )
                 )
 
         # Restore cursor position (clamped to list bounds)
@@ -106,7 +126,8 @@ class MerchantScreen(ModalScreen[None]):
         if opt_id.startswith("buy-"):
             self._buy(int(opt_id[4:]), idx)
         elif opt_id.startswith("sell-"):
-            self._sell(int(opt_id[5:]), idx)
+            item_id = opt_id[5:]
+            self._sell(item_id, idx)
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "close-btn":
@@ -133,11 +154,12 @@ class MerchantScreen(ModalScreen[None]):
                 self._player.inventory.append(canonical or item)
         self._refresh_items(restore_index=cursor)
 
-    def _sell(self, index: int, cursor: int = 0) -> None:
-        inv = self._player.inventory
-        if index < len(inv):
-            item = inv[index]
-            sell_price = max(1, item.gold_value // 2)
-            self._player.gold += sell_price
-            self._player.inventory.remove(item)
+    def _sell(self, item_id: str, cursor: int = 0) -> None:
+        """Sell one item matching the given id."""
+        for item in self._player.inventory:
+            if item.id == item_id:
+                sell_price = max(1, item.gold_value // 2)
+                self._player.gold += sell_price
+                self._player.inventory.remove(item)
+                break
         self._refresh_items(restore_index=cursor)

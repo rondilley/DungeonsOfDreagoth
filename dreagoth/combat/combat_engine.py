@@ -79,7 +79,9 @@ class CombatState:
             return
 
         attack_roll = d20()
-        is_crit = attack_roll == 20
+        # Crit bonus from equipped specials (e.g. crit on 19-20)
+        crit_threshold = 20 - self.player.equip_special("crit_bonus")
+        is_crit = attack_roll >= crit_threshold
         is_fumble = attack_roll == 1
 
         if is_fumble:
@@ -87,6 +89,12 @@ class CombatState:
             self._add_log("You swing wildly and miss!", style="grey50")
         elif is_crit or self._hits(attack_roll, self.player.attack_bonus, self.monster.ac):
             damage = self.player.roll_damage()
+            # Bonus fire damage from specials
+            fire_dice = self.player.equip_special_str("fire_damage")
+            if fire_dice:
+                fire_dmg = roll_dice(fire_dice)
+                damage += fire_dmg
+                self._add_log(f"Flames lick the {self.monster.name}! (+{fire_dmg})", style="bright_red")
             if is_crit:
                 damage *= 2
                 self.last_player_outcome = AttackOutcome.CRIT
@@ -94,6 +102,13 @@ class CombatState:
             else:
                 self.last_player_outcome = AttackOutcome.HIT
             self.monster.take_damage(damage)
+            # Life steal
+            life_steal_pct = self.player.equip_special("life_steal")
+            if life_steal_pct > 0:
+                stolen = max(1, damage * life_steal_pct // 100)
+                healed = self.player.heal(stolen)
+                if healed > 0:
+                    self._add_log(f"Life steal: +{healed} HP", style="bright_green")
             if self.monster.is_dead:
                 self._add_log(
                     f"You slay the {self.monster.name}! (+{self.monster.xp} XP)",
@@ -137,12 +152,20 @@ class CombatState:
 
             # Special abilities
             if self.monster.special == "poison" and random.random() < 0.3:
-                damage += roll_dice("1d4")
-                self._add_log("Poison courses through your veins!", style="bright_green")
+                if self.player.equip_special("poison_immune"):
+                    self._add_log("Your equipment wards off the poison!", style="bright_cyan")
+                else:
+                    damage += roll_dice("1d4")
+                    self._add_log("Poison courses through your veins!", style="bright_green")
             elif self.monster.special == "paralyze" and random.random() < 0.2:
                 self._add_log("You feel your limbs stiffening!", style="bright_cyan")
             elif self.monster.special == "drain" and random.random() < 0.15:
                 self._add_log("You feel your life force draining!", style="bright_magenta")
+
+            # Damage resistance from equipment specials
+            dr = self.player.equip_special("damage_resist")
+            if dr > 0:
+                damage = max(1, damage - dr)
 
             self.player.take_damage(damage)
             if self.player.is_dead:

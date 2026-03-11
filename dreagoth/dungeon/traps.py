@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from dreagoth.entities.item import roll_dice
@@ -14,6 +14,12 @@ class TrapType(Enum):
     POISON_DART = "poison_dart"
     ALARM = "alarm"
     TRAP_DOOR = "trap_door"
+    TELEPORT = "teleport"
+    WEB_SNARE = "web_snare"
+    SLEEP_GAS = "sleep_gas"
+    MANA_DRAIN = "mana_drain"
+    FLAME_JET = "flame_jet"
+    WEAKENING_CURSE = "weakening_curse"
 
 
 @dataclass
@@ -42,13 +48,20 @@ RACE_DETECT_BONUS: dict[str, int] = {
     "human": 0,
 }
 
-# Weights for trap type selection (trap_door excluded from max depth)
+# Weights for trap type selection.
+# Fall-through traps (pit, trap_door) are rare; excluded from max depth.
 TRAP_WEIGHTS: dict[TrapType, int] = {
-    TrapType.PIT: 30,
-    TrapType.SPIKE: 25,
-    TrapType.POISON_DART: 20,
-    TrapType.ALARM: 15,
-    TrapType.TRAP_DOOR: 10,
+    TrapType.SPIKE: 20,
+    TrapType.POISON_DART: 15,
+    TrapType.ALARM: 12,
+    TrapType.FLAME_JET: 15,
+    TrapType.WEB_SNARE: 14,
+    TrapType.SLEEP_GAS: 10,
+    TrapType.TELEPORT: 8,
+    TrapType.WEAKENING_CURSE: 8,
+    TrapType.MANA_DRAIN: 6,
+    TrapType.PIT: 5,
+    TrapType.TRAP_DOOR: 3,
 }
 
 
@@ -62,16 +75,24 @@ class TrapResult:
     poison_turns: int = 0
     alert_all: bool = False
     fall_through: bool = False
+    teleport: bool = False
+    held_turns: int = 0       # web snare: can't move for N turns
+    sleep_turns: int = 0      # sleep gas: can't act for N turns
+    mana_drain: int = 0       # spell slots drained
+    str_penalty: int = 0      # weakening curse: temporary STR reduction
+    str_penalty_turns: int = 0
+    burn_scroll: bool = False  # flame jet: chance to burn a scroll
 
 
 def check_detection(character, trap: Trap) -> bool:
-    """Roll a passive perception check: d20 + WIS mod + class + race >= DC."""
+    """Roll a passive perception check: d20 + WIS mod + class + race + equip >= DC."""
     from dreagoth.character.character import Character
     wis_mod = Character.ability_modifier(character.wisdom)
     class_bonus = CLASS_DETECT_BONUS.get(character.char_class, 0)
     race_bonus = RACE_DETECT_BONUS.get(character.race, 0)
+    equip_bonus = character.equip_special("trap_detect") if hasattr(character, "equip_special") else 0
     roll = roll_dice("1d20")
-    total = roll + wis_mod + class_bonus + race_bonus
+    total = roll + wis_mod + class_bonus + race_bonus + equip_bonus
     return total >= trap.difficulty
 
 
@@ -105,6 +126,37 @@ def resolve_trap(trap: Trap, depth: int) -> TrapResult:
         result.fall_through = True
         result.message = "The floor opens and you plummet into darkness!"
 
+    elif trap.trap_type == TrapType.TELEPORT:
+        result.damage = 0
+        result.teleport = True
+        result.message = "An arcane glyph flares beneath your feet — the world blurs!"
+
+    elif trap.trap_type == TrapType.WEB_SNARE:
+        result.damage = 0
+        result.held_turns = roll_dice("1d3") + 1  # 2-4 turns
+        result.message = "Thick spider silk entangles you!"
+
+    elif trap.trap_type == TrapType.SLEEP_GAS:
+        result.damage = 0
+        result.sleep_turns = roll_dice("1d3") + 1  # 2-4 turns
+        result.message = "A hiss of gas — your eyelids grow heavy..."
+
+    elif trap.trap_type == TrapType.MANA_DRAIN:
+        result.damage = 0
+        result.mana_drain = roll_dice("1d2")  # drain 1-2 slots
+        result.message = "A dark sigil pulses — you feel magical energy drain away!"
+
+    elif trap.trap_type == TrapType.FLAME_JET:
+        result.damage = max(1, roll_dice("2d6") + depth // 2)
+        result.burn_scroll = True
+        result.message = "Jets of flame blast from hidden nozzles in the walls!"
+
+    elif trap.trap_type == TrapType.WEAKENING_CURSE:
+        result.damage = 0
+        result.str_penalty = roll_dice("1d3") + 1  # -2 to -4 STR
+        result.str_penalty_turns = 20 + depth * 2
+        result.message = "Dark energy radiates from a cursed tile — your muscles weaken!"
+
     return result
 
 
@@ -115,4 +167,10 @@ TRAP_NAMES: dict[TrapType, str] = {
     TrapType.POISON_DART: "poison dart trap",
     TrapType.ALARM: "alarm trap",
     TrapType.TRAP_DOOR: "trap door",
+    TrapType.TELEPORT: "teleportation rune",
+    TrapType.WEB_SNARE: "web snare",
+    TrapType.SLEEP_GAS: "gas vent",
+    TrapType.MANA_DRAIN: "mana drain sigil",
+    TrapType.FLAME_JET: "flame jet",
+    TrapType.WEAKENING_CURSE: "weakening curse",
 }

@@ -439,6 +439,7 @@ class DreagothApp(App):
         Binding("t", "talk_npc", "Talk", show=False),
         Binding("j", "show_quest_log", "Quests", show=False),
         Binding("u", "use_item", "Use Item", show=False),
+        Binding("x", "inspect_item", "Inspect", show=False),
         Binding("v", "toggle_view", "View", show=False),
         Binding("ctrl+s", "save_game", "Save", show=False),
         Binding("ctrl+l", "load_game", "Load", show=False),
@@ -574,6 +575,7 @@ class DreagothApp(App):
             radius += RACE_DARKVISION.get(gs.player.race, 0)
             radius += gs.player.fov_bonus()
             radius += gs.player.light_bonus()
+            radius += gs.player.equip_special("bonus_fov")
         opened = gs.ensure_opened_doors(gs.current_depth)
         visible = compute_fov(level.grid, gs.player_x, gs.player_y, radius, opened)
         gs.visible = visible
@@ -673,6 +675,42 @@ class DreagothApp(App):
             self._log("You're in combat! F to fight, R to flee.", style="bright_red")
             return
         if gs.player and gs.player.is_dead:
+            return
+        if gs.player and gs.player.is_asleep():
+            # Tick buffs to count down sleep, but can't move
+            regen_msgs = gs.player.tick_buffs()
+            for rmsg in regen_msgs:
+                self._log(rmsg, style="bright_green")
+            gs.turn += 1
+            if not gs.player.is_asleep():
+                self._log("You wake up!", style="bold bright_green")
+            else:
+                self._log("You are asleep...", style="grey50")
+            self._move_monsters()
+            self._refresh_all()
+            return
+        if gs.player and gs.player.is_held():
+            # STR check to break free: d20 + STR mod >= 12
+            from dreagoth.core.dice import d20
+            roll = d20() + gs.player.str_mod
+            regen_msgs = gs.player.tick_buffs()
+            for rmsg in regen_msgs:
+                self._log(rmsg, style="bright_green")
+            gs.turn += 1
+            if not gs.player.is_held():
+                self._log("You break free from the web!", style="bold bright_green")
+            elif roll >= 12:
+                # Remove held buff early
+                gs.player.active_buffs = [
+                    b for b in gs.player.active_buffs if b.effect != "held"
+                ]
+                self._log(f"You tear free! (rolled {roll} vs DC 12)",
+                           style="bold bright_green")
+            else:
+                self._log(f"You struggle but can't break free. (rolled {roll} vs DC 12)",
+                           style="bright_yellow")
+            self._move_monsters()
+            self._refresh_all()
             return
 
         # Relative directions based on player facing
@@ -1151,6 +1189,10 @@ class DreagothApp(App):
         gs = self.game_state
         monster = gs.combat.monster
         xp = monster.xp
+        # Bonus XP from equipment specials
+        bonus_xp_pct = gs.player.equip_special("bonus_xp")
+        if bonus_xp_pct > 0:
+            xp = xp + xp * bonus_xp_pct // 100
         bus.publish("monster_kill")
 
         # AI kill narration
@@ -1352,6 +1394,7 @@ class DreagothApp(App):
 
         # Trap triggers!
         trap.triggered = True
+        trap.detected = True
         result = resolve_trap(trap, gs.current_depth)
         self._log(result.message, style="bold bright_red")
         bus.publish("trap_triggered")
@@ -1365,16 +1408,19 @@ class DreagothApp(App):
                 return True
 
         if result.poison and gs.player:
-            from dreagoth.combat.spells import ActiveBuff
-            gs.player.active_buffs.append(ActiveBuff(
-                spell_id="trap_poison",
-                effect="poison_dot",
-                value=0,
-                remaining_turns=result.poison_turns,
-                regen_dice=result.poison_dice,
-            ))
-            self._log("You feel poison coursing through your veins!",
-                       style="bold green")
+            if gs.player.equip_special("poison_immune"):
+                self._log("Your equipment wards off the poison!", style="bright_cyan")
+            else:
+                from dreagoth.combat.spells import ActiveBuff
+                gs.player.active_buffs.append(ActiveBuff(
+                    spell_id="trap_poison",
+                    effect="poison_dot",
+                    value=0,
+                    remaining_turns=result.poison_turns,
+                    regen_dice=result.poison_dice,
+                ))
+                self._log("You feel poison coursing through your veins!",
+                           style="bold green")
 
         if result.alert_all:
             if gs.current_depth in gs.entities:
@@ -1384,6 +1430,73 @@ class DreagothApp(App):
                 self._log("All nearby creatures are alerted to your presence!",
                            style="bold bright_yellow")
                 bus.publish("monster_alert")
+
+        if result.teleport and gs.player:
+            landing = self._find_random_walkable(gs.current_level)
+            if landing:
+                gs.player_x, gs.player_y = landing
+                self._update_fov()
+                self._log("You materialize in an unfamiliar part of the dungeon.",
+                           style="bold bright_magenta")
+            return True
+
+        if result.held_turns > 0 and gs.player:
+            from dreagoth.combat.spells import ActiveBuff
+            gs.player.active_buffs.append(ActiveBuff(
+                spell_id="trap_web",
+                effect="held",
+                value=0,
+                remaining_turns=result.held_turns,
+            ))
+            self._log(f"You are held for {result.held_turns} turns! "
+                       "You struggle to break free.",
+                       style="bold bright_yellow")
+
+        if result.sleep_turns > 0 and gs.player:
+            from dreagoth.combat.spells import ActiveBuff
+            gs.player.active_buffs.append(ActiveBuff(
+                spell_id="trap_sleep",
+                effect="sleep",
+                value=0,
+                remaining_turns=result.sleep_turns,
+            ))
+            self._log(f"You fall asleep for {result.sleep_turns} turns!",
+                       style="bold bright_magenta")
+
+        if result.mana_drain > 0 and gs.player:
+            drained = 0
+            for lvl in range(1, 4):
+                while result.mana_drain > drained and \
+                      gs.player.spell_slots.available(lvl) > 0:
+                    gs.player.spell_slots.use(lvl)
+                    drained += 1
+            if drained > 0:
+                self._log(f"You lose {drained} spell slot(s)!",
+                           style="bold bright_magenta")
+            else:
+                self._log("The sigil flickers — you have no magic to drain.",
+                           style="grey50")
+
+        if result.burn_scroll and gs.player:
+            import random as _rng
+            scrolls = [i for i in gs.player.inventory if i.is_scroll]
+            if scrolls and _rng.random() < 0.25:
+                victim = _rng.choice(scrolls)
+                gs.player.inventory.remove(victim)
+                self._log(f"Your {victim.name} catches fire and burns to ash!",
+                           style="bold bright_red")
+
+        if result.str_penalty > 0 and gs.player:
+            from dreagoth.combat.spells import ActiveBuff
+            gs.player.active_buffs.append(ActiveBuff(
+                spell_id="trap_weaken",
+                effect="str_penalty",
+                value=result.str_penalty,
+                remaining_turns=result.str_penalty_turns,
+            ))
+            self._log(f"Your Strength is reduced by {result.str_penalty} "
+                       f"for {result.str_penalty_turns} turns!",
+                       style="bold bright_red")
 
         if result.fall_through:
             self._fall_through_trap_door(x, y)
@@ -1648,8 +1761,18 @@ class DreagothApp(App):
     def _on_inventory_action(self, result: str | None) -> None:
         if result:
             self._log(result, style="bright_green")
+            if self.game_state.player:
+                self.game_state.player._on_equipment_change()
             self._update_fov()
             self._refresh_all()
+
+    def action_inspect_item(self) -> None:
+        """Open the inspect screen to view detailed item properties."""
+        gs = self.game_state
+        if not gs.player:
+            return
+        from dreagoth.ui.inspect_screen import InspectScreen
+        self.push_screen(InspectScreen(gs.player))
 
     # ------------------------------------------------------------------
     # NPC interaction

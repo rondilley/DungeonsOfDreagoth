@@ -59,6 +59,18 @@ class Item:
     # Rarity: common (white), magic (green), rare (blue), epic (purple), unique (orange)
     rarity: str = "common"
     lore: str = ""
+    # Special enhancements (unique/epic items): key → value
+    #   life_steal: int        — heal % of melee damage dealt
+    #   crit_bonus: int        — added to crit chance (e.g. crit on 19-20)
+    #   poison_immune: 1       — immune to poison effects
+    #   damage_resist: int     — flat damage reduction on incoming hits
+    #   bonus_fov: int         — extend field-of-view radius
+    #   trap_detect: int       — bonus to trap detection rolls
+    #   bonus_spell_slot: int  — extra spell slots (level 1)
+    #   regen_per_turn: str    — passive HP regen dice each turn (e.g. "1d2")
+    #   bonus_xp: int          — % bonus XP from kills
+    #   fire_damage: str       — bonus fire damage dice on hit (e.g. "1d4")
+    specials: dict[str, int | str] = field(default_factory=dict)
 
     @property
     def gold_value(self) -> int:
@@ -121,6 +133,28 @@ class Item:
             return f"{count}d{sides}+{total_bonus}"
         return f"{count}d{sides}"
 
+    # Human-readable labels for special enhancements
+    _SPECIAL_LABELS: ClassVar[dict[str, str]] = {
+        "life_steal": "Life Steal {v}%",
+        "crit_bonus": "Crit +{v}",
+        "poison_immune": "Poison Immune",
+        "damage_resist": "DR {v}",
+        "bonus_fov": "FOV +{v}",
+        "trap_detect": "Trap Detect +{v}",
+        "bonus_spell_slot": "Spell Slot +{v}",
+        "regen_per_turn": "Regen {v}/turn",
+        "bonus_xp": "XP +{v}%",
+        "fire_damage": "Fire +{v}",
+    }
+
+    def _specials_short(self) -> list[str]:
+        """Short display strings for each special enhancement."""
+        result = []
+        for key, val in self.specials.items():
+            template = self._SPECIAL_LABELS.get(key, f"{key} {{}}")
+            result.append(template.format(v=val))
+        return result
+
     def display_info_at(self, level: int = 1) -> str:
         """Display info with heal values scaled to the given character level."""
         parts = [self.name]
@@ -142,12 +176,55 @@ class Item:
             parts.append(f"AC-{self.ac_bonus}")
         if self.attack_mod:
             parts.append(f"Atk+{self.attack_mod}")
+        for sp in self._specials_short():
+            parts.append(f"[{sp}]")
         parts.append(f"({self.price}{self.currency})")
         return " ".join(parts)
 
     @property
     def display_info(self) -> str:
         return self.display_info_at(1)
+
+    def inspect_lines(self, level: int = 1) -> list[str]:
+        """Return detailed multi-line description for the inspect screen."""
+        lines: list[str] = []
+        rcolor = self.rarity_color or "white"
+        lines.append(f"[bold {rcolor}]{self.name}[/bold {rcolor}]")
+        if self.rarity != "common":
+            lines.append(f"  Rarity: [{rcolor}]{self.rarity.title()}[/{rcolor}]")
+        if self.lore:
+            lines.append(f"  [italic grey70]\"{self.lore}\"[/italic grey70]")
+        lines.append("")
+
+        # Base stats
+        if self.damage:
+            lines.append(f"  Damage: {self.damage}")
+        if self.two_handed:
+            lines.append("  Two-handed")
+        if self.ac_bonus:
+            lines.append(f"  AC bonus: -{self.ac_bonus}")
+        if self.attack_mod:
+            lines.append(f"  Attack bonus: +{self.attack_mod}")
+        if self.classes:
+            lines.append(f"  Classes: {', '.join(c.title() for c in self.classes)}")
+        if self.slot:
+            lines.append(f"  Slot: {self.slot.title()}")
+        if self.heal_dice:
+            lines.append(f"  Heals: {self._heal_str(level)}")
+        if self.light_radius:
+            lines.append(f"  Light: +{self.light_radius} FOV radius")
+
+        # Special enhancements
+        if self.specials:
+            lines.append("")
+            lines.append(f"  [bold bright_cyan]Special Properties:[/bold bright_cyan]")
+            for key, val in self.specials.items():
+                label = self._SPECIAL_LABELS.get(key, f"{key}: {{v}}")
+                lines.append(f"    [bright_cyan]{label.format(v=val)}[/bright_cyan]")
+
+        lines.append("")
+        lines.append(f"  Value: {self.price} {self.currency}")
+        return lines
 
 
 class EquipmentDB:

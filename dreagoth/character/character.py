@@ -123,7 +123,8 @@ class Character:
 
     @property
     def str_mod(self) -> int:
-        return self.ability_modifier(self.strength)
+        effective = max(1, self.strength - self.str_penalty())
+        return self.ability_modifier(effective)
 
     @property
     def dex_mod(self) -> int:
@@ -179,12 +180,15 @@ class Character:
         return max(1, base + self.str_mod)
 
     def take_damage(self, amount: int) -> int:
-        """Apply damage, return actual damage taken."""
+        """Apply damage, return actual damage taken. Damage wakes sleeping characters."""
         actual = min(amount, self.hp)
         self.hp -= actual
         if self.hp <= 0:
             self.hp = 0
             self.is_dead = True
+        # Damage wakes you up
+        if actual > 0 and self.is_asleep():
+            self.active_buffs = [b for b in self.active_buffs if b.effect != "sleep"]
         return actual
 
     def heal(self, amount: int) -> int:
@@ -213,6 +217,11 @@ class Character:
         """Initialize spell slots based on class and level."""
         self.spell_slots.update_max(self.char_class, self.level)
 
+    def refresh_bonus_spell_slots(self) -> None:
+        """Update bonus spell slots from equipped items' specials."""
+        bonus = self.equip_special("bonus_spell_slot")
+        self.spell_slots.bonus_slots = [bonus, 0, 0]  # Apply to level 1 slots
+
     def buff_ac_bonus(self) -> int:
         return sum(b.value for b in self.active_buffs if b.effect == "ac")
 
@@ -236,6 +245,18 @@ class Character:
         if self.shield and self.shield.is_light_source and self.light_remaining > 0:
             return True
         return any(b.effect == "fov_extend" for b in self.active_buffs)
+
+    def is_held(self) -> bool:
+        """True if entangled (web snare) — cannot move but can attack."""
+        return any(b.effect == "held" for b in self.active_buffs)
+
+    def is_asleep(self) -> bool:
+        """True if asleep (sleep gas) — cannot act at all."""
+        return any(b.effect == "sleep" for b in self.active_buffs)
+
+    def str_penalty(self) -> int:
+        """Temporary STR reduction from weakening curse."""
+        return sum(b.value for b in self.active_buffs if b.effect == "str_penalty")
 
     def tick_buffs(self) -> list[str]:
         """Decrement turn-based buffs, process regen, remove expired ones.
@@ -266,6 +287,15 @@ class Character:
                 remaining.append(buff)
         self.active_buffs = remaining
 
+        # Passive regen from equipment specials
+        regen_dice = self.equip_special_str("regen_per_turn")
+        if regen_dice and self.hp < self.max_hp:
+            healed = self.heal(max(1, roll_dice(regen_dice)))
+            if healed > 0:
+                messages.append(
+                    f"Equipment regen: +{healed} HP ({self.hp}/{self.max_hp})"
+                )
+
         # Tick equipped light source
         if self.shield and self.shield.is_light_source and self.light_remaining > 0:
             self.light_remaining -= 1
@@ -285,6 +315,33 @@ class Character:
             b for b in self.active_buffs if b.remaining_turns is not None
         ]
 
+    def _equipped_items(self) -> list:
+        """Return all currently equipped items (non-None)."""
+        items = []
+        if self.weapon:
+            items.append(self.weapon)
+        for slot_name in self.EQUIPMENT_SLOTS:
+            item = getattr(self, slot_name)
+            if item:
+                items.append(item)
+        return items
+
+    def equip_special(self, key: str, default: int = 0) -> int:
+        """Sum an integer special enhancement across all equipped items."""
+        return sum(
+            item.specials.get(key, 0)
+            for item in self._equipped_items()
+            if isinstance(item.specials.get(key, 0), int)
+        )
+
+    def equip_special_str(self, key: str) -> str | None:
+        """Get the first string-valued special from equipped items."""
+        for item in self._equipped_items():
+            val = item.specials.get(key)
+            if isinstance(val, str):
+                return val
+        return None
+
     # Mapping from item slot value to (character field, equip verb)
     _SLOT_MAP: ClassVar[dict[str, tuple[str, str]]] = {
         "body": ("armor", "You don the {name}."),
@@ -298,6 +355,12 @@ class Character:
 
     def equip(self, item: Item) -> str | None:
         """Equip an item from inventory. Returns message or None."""
+        result = self._equip_inner(item)
+        if result and not result.startswith("A ") and not result.startswith("You can't"):
+            self._on_equipment_change()
+        return result
+
+    def _equip_inner(self, item: Item) -> str | None:
         if item not in self.inventory:
             return None
         if item.is_weapon:
@@ -342,6 +405,10 @@ class Character:
                 msg = f"You light the {item.name}. It illuminates the darkness!"
             return msg
         return f"You can't equip {item.name}."
+
+    def _on_equipment_change(self) -> None:
+        """Called after any equip/unequip to refresh derived stats."""
+        self.refresh_bonus_spell_slots()
 
     def use_item(self, item: Item) -> tuple[str, int] | None:
         """Use a consumable item. Returns (message, healed) or None.

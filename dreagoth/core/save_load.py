@@ -76,6 +76,7 @@ def _serialize_item(item: Item) -> dict:
         "light_radius": item.light_radius,
         "light_duration": item.light_duration,
         "rarity": item.rarity, "lore": item.lore,
+        "specials": item.specials,
     }
 
 
@@ -97,6 +98,7 @@ def _deserialize_item(data: dict) -> Item | None:
         light_radius=data.get("light_radius", 0),
         light_duration=data.get("light_duration", 0),
         rarity=rarity, lore=data.get("lore", ""),
+        specials=data.get("specials", {}),
     )
 
 

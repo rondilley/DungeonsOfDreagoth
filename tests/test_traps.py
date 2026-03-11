@@ -89,6 +89,117 @@ class TestTrapResolution:
         assert deep_total > shallow_total
 
 
+    def test_teleport_no_damage(self):
+        trap = Trap(TrapType.TELEPORT, 5, 5)
+        result = resolve_trap(trap, depth=3)
+        assert result.damage == 0
+        assert result.teleport is True
+        assert "glyph" in result.message.lower()
+
+    def test_web_snare_holds(self):
+        trap = Trap(TrapType.WEB_SNARE, 5, 5)
+        result = resolve_trap(trap, depth=3)
+        assert result.damage == 0
+        assert result.held_turns >= 2
+        assert "web" in result.message.lower() or "silk" in result.message.lower()
+
+    def test_sleep_gas(self):
+        trap = Trap(TrapType.SLEEP_GAS, 5, 5)
+        result = resolve_trap(trap, depth=3)
+        assert result.damage == 0
+        assert result.sleep_turns >= 2
+        assert "gas" in result.message.lower() or "sleep" in result.message.lower()
+
+    def test_mana_drain(self):
+        trap = Trap(TrapType.MANA_DRAIN, 5, 5)
+        result = resolve_trap(trap, depth=3)
+        assert result.damage == 0
+        assert result.mana_drain >= 1
+        assert "sigil" in result.message.lower() or "drain" in result.message.lower()
+
+    def test_flame_jet_does_damage(self):
+        trap = Trap(TrapType.FLAME_JET, 5, 5)
+        result = resolve_trap(trap, depth=3)
+        assert result.damage >= 1
+        assert result.burn_scroll is True
+        assert "flame" in result.message.lower()
+
+    def test_weakening_curse(self):
+        trap = Trap(TrapType.WEAKENING_CURSE, 5, 5)
+        result = resolve_trap(trap, depth=3)
+        assert result.damage == 0
+        assert result.str_penalty >= 2
+        assert result.str_penalty_turns > 0
+        assert "curse" in result.message.lower() or "weaken" in result.message.lower()
+
+
+class TestNewTrapEffects:
+    def test_held_blocks_movement(self):
+        char = create_character("Test", "fighter", "human")
+        char.active_buffs.append(ActiveBuff(
+            spell_id="trap_web", effect="held", value=0, remaining_turns=3,
+        ))
+        assert char.is_held()
+
+    def test_sleep_blocks_action(self):
+        char = create_character("Test", "fighter", "human")
+        char.active_buffs.append(ActiveBuff(
+            spell_id="trap_sleep", effect="sleep", value=0, remaining_turns=3,
+        ))
+        assert char.is_asleep()
+
+    def test_damage_wakes_sleeper(self):
+        char = create_character("Test", "fighter", "human")
+        char.hp = 20
+        char.max_hp = 20
+        char.active_buffs.append(ActiveBuff(
+            spell_id="trap_sleep", effect="sleep", value=0, remaining_turns=3,
+        ))
+        assert char.is_asleep()
+        char.take_damage(5)
+        assert not char.is_asleep()
+
+    def test_str_penalty_reduces_str_mod(self):
+        char = create_character("Test", "fighter", "human")
+        char.strength = 16  # +3 mod
+        base_mod = char.str_mod
+        char.active_buffs.append(ActiveBuff(
+            spell_id="trap_weaken", effect="str_penalty", value=4,
+            remaining_turns=10,
+        ))
+        # STR 16 - 4 = 12 -> +1 mod (was +3)
+        assert char.str_mod < base_mod
+
+    def test_str_penalty_expires(self):
+        char = create_character("Test", "fighter", "human")
+        char.strength = 16
+        char.active_buffs.append(ActiveBuff(
+            spell_id="trap_weaken", effect="str_penalty", value=4,
+            remaining_turns=1,
+        ))
+        assert char.str_penalty() == 4
+        char.tick_buffs()
+        assert char.str_penalty() == 0
+
+    def test_mana_drain_removes_slots(self):
+        char = create_character("Test", "mage", "human")
+        char.level = 5
+        char.init_spell_slots()
+        total_before = sum(
+            char.spell_slots.available(lvl) for lvl in range(1, 4)
+        )
+        # Drain 2 slots
+        drained = 0
+        for lvl in range(1, 4):
+            while 2 > drained and char.spell_slots.available(lvl) > 0:
+                char.spell_slots.use(lvl)
+                drained += 1
+        total_after = sum(
+            char.spell_slots.available(lvl) for lvl in range(1, 4)
+        )
+        assert total_after == total_before - 2
+
+
 class TestTrapNames:
     def test_all_types_have_names(self):
         for tt in TrapType:
@@ -114,13 +225,13 @@ class TestTrapPopulation:
             tile = level[t.x, t.y]
             assert tile in (Tile.ROOM, Tile.CORRIDOR)
 
-    def test_no_trap_doors_on_max_depth(self):
-        """Trap doors should not be placed on the maximum depth."""
+    def test_no_fall_through_traps_on_max_depth(self):
+        """Pit and trap door traps should not be placed on the maximum depth."""
         random.seed(1)
         level = self._make_level_with_rooms(MAX_DUNGEON_DEPTH)
         ents = populate_level(level, MAX_DUNGEON_DEPTH)
         for t in ents.traps:
-            assert t.trap_type != TrapType.TRAP_DOOR
+            assert t.trap_type not in (TrapType.TRAP_DOOR, TrapType.PIT)
 
     def test_trap_index_works(self):
         ents = LevelEntities()

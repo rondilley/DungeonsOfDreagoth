@@ -99,13 +99,14 @@ class SpellSlots:
     """Tracks spell slot usage for a character."""
     max_slots: list[int] = field(default_factory=lambda: [0, 0, 0])
     used_slots: list[int] = field(default_factory=lambda: [0, 0, 0])
+    bonus_slots: list[int] = field(default_factory=lambda: [0, 0, 0])
 
     def available(self, spell_level: int) -> int:
-        """Available slots at a given spell level (1-3)."""
+        """Available slots at a given spell level (1-3), including equipment bonuses."""
         idx = spell_level - 1
         if idx < 0 or idx >= 3:
             return 0
-        return self.max_slots[idx] - self.used_slots[idx]
+        return self.max_slots[idx] + self.bonus_slots[idx] - self.used_slots[idx]
 
     def use(self, spell_level: int) -> bool:
         """Use a slot. Returns False if none available."""

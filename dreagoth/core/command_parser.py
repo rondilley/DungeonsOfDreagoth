@@ -41,6 +41,7 @@ COMMANDS: list[Command] = [
     Command("look", ["l", "examine"], "Look around", "action_look"),
     Command("stats", ["status", "info"], "Show character stats", "action_look"),
     Command("use", ["consume", "drink", "apply"], "Use a consumable item", "action_use_item"),
+    Command("inspect", ["x", "examine_item", "details"], "Inspect item details", "action_inspect_item"),
 ]
 
 # Build lookup for fast resolution

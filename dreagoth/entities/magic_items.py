@@ -116,6 +116,18 @@ def generate_magic_item(depth: int, rarity: str) -> Item:
     price_mult = {"magic": 3, "rare": 6, "epic": 12}[rarity]
     price = max(base.price * price_mult, 10)
 
+    # Epic items get a random special enhancement
+    specials: dict[str, int | str] = {}
+    if rarity == "epic":
+        if base.is_weapon:
+            pool = [("life_steal", 10), ("crit_bonus", 1), ("fire_damage", "1d4")]
+        elif base.slot in ("ring", "amulet"):
+            pool = [("trap_detect", 2), ("bonus_spell_slot", 1), ("bonus_xp", 10)]
+        else:
+            pool = [("damage_resist", 1), ("regen_per_turn", "1d2"), ("bonus_fov", 1)]
+        key, val = random.choice(pool)
+        specials[key] = val
+
     return Item(
         id=item_id,
         name=name,
@@ -131,6 +143,7 @@ def generate_magic_item(depth: int, rarity: str) -> Item:
         slot=base.slot,
         two_handed=base.two_handed,
         rarity=rarity,
+        specials=specials,
     )
 
 
@@ -178,6 +191,8 @@ class UniqueItemDB:
                 entry["slot"] = item.slot
             if item.two_handed:
                 entry["two_handed"] = item.two_handed
+            if item.specials:
+                entry["specials"] = item.specials
             entries.append(entry)
         with open(UNIQUE_ITEMS_PATH, "w") as f:
             json.dump({"unique_items": entries}, f, indent=2)
@@ -389,9 +404,46 @@ def _fallback_name_lore(skeleton: dict) -> tuple[str, str]:
     return name, lore
 
 
+def _pick_unique_specials(skeleton: dict) -> dict[str, int | str]:
+    """Pick 1-2 random special enhancements appropriate for the item type."""
+    cat = skeleton["cat"]
+    weapon_specials = [
+        ("life_steal", lambda: random.randint(10, 25)),
+        ("crit_bonus", lambda: random.randint(1, 3)),
+        ("fire_damage", lambda: random.choice(["1d4", "1d6", "2d4"])),
+        ("bonus_xp", lambda: random.randint(10, 25)),
+    ]
+    armor_specials = [
+        ("damage_resist", lambda: random.randint(1, 3)),
+        ("poison_immune", lambda: 1),
+        ("regen_per_turn", lambda: random.choice(["1d2", "1d3"])),
+        ("bonus_fov", lambda: random.randint(1, 2)),
+    ]
+    accessory_specials = [
+        ("trap_detect", lambda: random.randint(2, 4)),
+        ("bonus_spell_slot", lambda: random.randint(1, 2)),
+        ("bonus_xp", lambda: random.randint(10, 25)),
+        ("damage_resist", lambda: random.randint(1, 2)),
+        ("bonus_fov", lambda: random.randint(1, 3)),
+        ("regen_per_turn", lambda: "1d2"),
+    ]
+
+    if cat == "weapons":
+        pool = weapon_specials
+    elif cat == "accessories":
+        pool = accessory_specials
+    else:
+        pool = armor_specials
+
+    count = random.choice([1, 1, 2])  # 1/3 chance of two specials
+    chosen = random.sample(pool, min(count, len(pool)))
+    return {key: gen() for key, gen in chosen}
+
+
 def _skeleton_to_item(skeleton: dict, name: str, lore: str) -> Item:
     """Convert a skeleton dict + AI-generated name/lore into an Item."""
     item_id = "unique_" + re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+    specials = skeleton.get("specials") or _pick_unique_specials(skeleton)
     return Item(
         id=item_id,
         name=name,
@@ -408,6 +460,7 @@ def _skeleton_to_item(skeleton: dict, name: str, lore: str) -> Item:
         two_handed=skeleton.get("two_handed", False),
         rarity="unique",
         lore=lore,
+        specials=specials,
     )
 
 
