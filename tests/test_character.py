@@ -158,10 +158,49 @@ class TestCharacter:
             assert char.race == race
 
 
+    def test_level_up_to_25(self):
+        """Character can level all the way to 25."""
+        from dreagoth.character.character import XP_TABLE
+        char = create_character("Hero", "fighter", "human")
+        char.hp = 50
+        char.max_hp = 50
+        for target_level in range(2, 26):
+            char.xp = XP_TABLE[target_level - 1]
+            char.gain_xp(0)  # trigger check
+            if char.level < target_level:
+                # Force enough XP
+                char.xp = XP_TABLE[target_level - 1] - 1
+                char.gain_xp(1)
+            assert char.level == target_level, f"Expected level {target_level}, got {char.level}"
+        assert char.level == 25
+        assert char.max_hp > 50  # Should have gained HP from leveling
+
+    def test_xp_to_next_at_max_level(self):
+        """At level 25, xp_to_next should return a large sentinel."""
+        from dreagoth.character.character import XP_TABLE
+        char = create_character("Maxed", "mage", "elf")
+        char.level = 25
+        char.xp = XP_TABLE[-1]
+        assert char.xp_to_next == 999999
+
+    def test_spell_slots_at_high_levels(self):
+        """Mage and cleric spell slots scale through level 25."""
+        from dreagoth.combat.spells import MAGE_SLOTS, CLERIC_SLOTS
+        assert len(MAGE_SLOTS) == 25
+        assert len(CLERIC_SLOTS) == 25
+        # Slots should be non-decreasing
+        for i in range(1, 25):
+            for j in range(3):
+                assert MAGE_SLOTS[i][j] >= MAGE_SLOTS[i - 1][j], \
+                    f"Mage slots decreased at level {i + 1} spell level {j + 1}"
+                assert CLERIC_SLOTS[i][j] >= CLERIC_SLOTS[i - 1][j], \
+                    f"Cleric slots decreased at level {i + 1} spell level {j + 1}"
+
+
 class TestMonsterDB:
     def test_loads(self):
         db = MonsterDB()
-        assert len(db.templates) == 22
+        assert len(db.templates) == 30
 
     def test_spawn(self):
         db = MonsterDB()
@@ -181,6 +220,18 @@ class TestMonsterDB:
         # Level 10 should have tough monsters
         names_l10 = [t.name for t in l10]
         assert "Minotaur" in names_l10
+
+    def test_eligible_for_high_levels(self):
+        db = MonsterDB()
+        l20 = db.eligible_for_level(20)
+        names_l20 = [t.name for t in l20]
+        assert "Demon Lord" in names_l20
+        assert "Giant Rat" not in names_l20
+        # Level 25 should have the toughest monsters
+        l25 = db.eligible_for_level(25)
+        names_l25 = [t.name for t in l25]
+        assert "Ancient Wyrm" in names_l25
+        assert len(l25) >= 2  # At least a couple options
 
     def test_random_for_level(self):
         db = MonsterDB()

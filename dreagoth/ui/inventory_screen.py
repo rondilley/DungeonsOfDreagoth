@@ -2,12 +2,30 @@
 
 from __future__ import annotations
 
+from collections import Counter
+
 from textual.app import ComposeResult
 from textual.screen import ModalScreen
 from textual.widgets import Static, Button, Label, OptionList
 from textual.widgets.option_list import Option
 
 from dreagoth.entities.item import Item
+
+
+def _group_items(items: list[Item]) -> list[tuple[Item, int]]:
+    """Group identical items by id, preserving first-seen order.
+
+    Returns list of (representative_item, quantity) tuples.
+    """
+    counts: Counter[str] = Counter()
+    first: dict[str, Item] = {}
+    order: list[str] = []
+    for item in items:
+        counts[item.id] += 1
+        if item.id not in first:
+            first[item.id] = item
+            order.append(item.id)
+    return [(first[item_id], counts[item_id]) for item_id in order]
 
 
 class InventoryScreen(ModalScreen[str | None]):
@@ -90,13 +108,14 @@ class InventoryScreen(ModalScreen[str | None]):
         if has_equipped and p.inventory:
             ol.add_option(Option("\u2500\u2500\u2500 Backpack \u2500\u2500\u2500", id="sep", disabled=True))
 
-        # Backpack items — selecting equips (if equippable) or shows info
+        # Backpack items — grouped by item id with quantity
         _slot_tags = {
             "": "", "body": " [armor]", "shield": " [shield]",
             "head": " [helmet]", "boots": " [boots]",
             "gloves": " [gloves]", "ring": " [ring]", "amulet": " [amulet]",
         }
-        for i, item in enumerate(p.inventory):
+        grouped = _group_items(p.inventory)
+        for item, qty in grouped:
             tag = ""
             if item.is_weapon:
                 tag = " [weapon]"
@@ -104,7 +123,11 @@ class InventoryScreen(ModalScreen[str | None]):
                 tag = " [use]"
             elif item.slot:
                 tag = _slot_tags.get(item.slot, f" [{item.slot}]")
-            ol.add_option(Option(f"{item.display_info_at(p.level)}{tag}", id=f"inv-{i}"))
+            qty_str = f" x{qty}" if qty > 1 else ""
+            ol.add_option(Option(
+                f"{item.display_info_at(p.level)}{qty_str}{tag}",
+                id=f"inv-{item.id}",
+            ))
 
         if not has_equipped and not p.inventory:
             ol.add_option(Option("Nothing in your possession.", id="empty"))
@@ -115,6 +138,13 @@ class InventoryScreen(ModalScreen[str | None]):
             ol.highlighted = idx
 
         ol.focus()
+
+    def _find_item(self, item_id: str) -> Item | None:
+        """Find the first inventory item matching the given id."""
+        for item in self._player.inventory:
+            if item.id == item_id:
+                return item
+        return None
 
     def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
         opt_id = event.option.id
@@ -128,14 +158,21 @@ class InventoryScreen(ModalScreen[str | None]):
             slot_name = opt_id[8:]  # e.g. "weapon", "armor", "helmet"
             item = getattr(p, slot_name, None)
             if item:
-                p.inventory.append(item)
-                name = item.name
-                setattr(p, slot_name, None)
-                self._dismiss_with(f"You remove the {name}.", idx)
+                # Lit light sources are consumed when removed
+                if slot_name == "shield" and item.is_light_source and p.light_remaining > 0:
+                    p.light_remaining = 0
+                    name = item.name
+                    setattr(p, slot_name, None)
+                    self._dismiss_with(f"Your {name} goes out.", idx)
+                else:
+                    p.inventory.append(item)
+                    name = item.name
+                    setattr(p, slot_name, None)
+                    self._dismiss_with(f"You remove the {name}.", idx)
         elif opt_id.startswith("inv-"):
-            item_idx = int(opt_id[4:])
-            if item_idx < len(p.inventory):
-                item = p.inventory[item_idx]
+            item_id = opt_id[4:]
+            item = self._find_item(item_id)
+            if item:
                 if item.is_equippable:
                     msg = p.equip(item)
                     self._dismiss_with(msg or f"Equipped {item.name}.", idx)

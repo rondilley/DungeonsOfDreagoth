@@ -1,24 +1,25 @@
-"""Anthropic SDK client wrapper with retry logic and cost tracking."""
+"""AI client — provider chain: Anthropic → Mistral → local LLM → template fallback.
+
+The singleton ``ai_client`` exposes the same ``available`` / ``generate()``
+interface that the rest of the codebase relies on.  Internally it delegates
+to the first provider whose API key is configured and whose SDK imported
+successfully.  When no API keys are available, falls back to a local GGUF
+model via llama-cpp-python (auto-downloads based on hardware).
+"""
 
 from __future__ import annotations
 
 import os
 from pathlib import Path
 
-# Try to load API key from file first, then env var
-_KEY_FILE = Path(__file__).parent.parent.parent / "claude.key.txt"
+_PROJECT_ROOT = Path(__file__).parent.parent.parent
 
+# ---------------------------------------------------------------------------
+# Anthropic provider (built-in, same code as the original AIClient)
+# ---------------------------------------------------------------------------
 
-def _load_api_key() -> str | None:
-    if _KEY_FILE.exists():
-        key = _KEY_FILE.read_text().strip()
-        if key and not key.startswith("#"):
-            return key
-    return os.environ.get("ANTHROPIC_API_KEY")
-
-
-class AIClient:
-    """Wrapper around Anthropic SDK with retry and cost tracking."""
+class AnthropicProvider:
+    """Anthropic Claude provider."""
 
     def __init__(self) -> None:
         self._client = None
@@ -29,7 +30,14 @@ class AIClient:
         self._init_client()
 
     def _init_client(self) -> None:
-        api_key = _load_api_key()
+        key_file = _PROJECT_ROOT / "claude.key.txt"
+        api_key: str | None = None
+        if key_file.exists():
+            key = key_file.read_text().strip()
+            if key and not key.startswith("#"):
+                api_key = key
+        if not api_key:
+            api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             return
         try:
@@ -40,12 +48,15 @@ class AIClient:
             self._available = False
 
     @property
+    def name(self) -> str:
+        return "Anthropic"
+
+    @property
     def available(self) -> bool:
         return self._available
 
     @property
     def cost_estimate(self) -> float:
-        """Estimated cost in USD (Sonnet pricing)."""
         input_cost = self._total_input_tokens * 3.0 / 1_000_000
         output_cost = self._total_output_tokens * 15.0 / 1_000_000
         return input_cost + output_cost
@@ -56,7 +67,6 @@ class AIClient:
         prompt: str,
         max_tokens: int = 200,
     ) -> str | None:
-        """Generate text using Claude. Returns None on failure."""
         if not self._available:
             return None
         try:
@@ -72,6 +82,93 @@ class AIClient:
             return response.content[0].text
         except Exception:
             return None
+
+
+# ---------------------------------------------------------------------------
+# Provider chain
+# ---------------------------------------------------------------------------
+
+class AIClient:
+    """Provider chain — delegates to the first available AI backend.
+
+    Tries providers in order: Anthropic → Mistral.
+    Exposes the same ``available`` / ``generate()`` / ``cost_estimate``
+    interface so existing code doesn't need to change.
+    """
+
+    def __init__(self) -> None:
+        self._providers: list = []
+        self._active = None  # currently active provider
+        self._init_providers()
+
+    def _init_providers(self) -> None:
+        # 1. Anthropic (always try first)
+        anthropic_prov = AnthropicProvider()
+        self._providers.append(anthropic_prov)
+
+        # 2. Mistral (lazy import so missing SDK doesn't crash the game)
+        try:
+            from dreagoth.ai.mistral_provider import MistralProvider
+            mistral_prov = MistralProvider()
+            self._providers.append(mistral_prov)
+        except Exception:
+            pass
+
+        # 3. Local LLM via llama-cpp-python (when no API keys available)
+        try:
+            from dreagoth.ai.llama_provider import LlamaCppProvider
+            llama_prov = LlamaCppProvider()
+            self._providers.append(llama_prov)
+        except Exception:
+            pass
+
+        # Pick first available
+        for prov in self._providers:
+            if prov.available:
+                self._active = prov
+                break
+
+    @property
+    def available(self) -> bool:
+        return self._active is not None
+
+    @property
+    def provider_name(self) -> str:
+        """Name of the active provider, or 'None'."""
+        return self._active.name if self._active else "None"
+
+    @property
+    def cost_estimate(self) -> float:
+        """Aggregate cost across all providers that were used."""
+        return sum(p.cost_estimate for p in self._providers)
+
+    def generate(
+        self,
+        system: str,
+        prompt: str,
+        max_tokens: int = 200,
+    ) -> str | None:
+        """Generate text using the active provider. Returns None on failure.
+
+        If the active provider fails, tries the next available one.
+        """
+        if not self._active:
+            return None
+
+        result = self._active.generate(system, prompt, max_tokens)
+        if result is not None:
+            return result
+
+        # Active provider failed — try remaining providers
+        for prov in self._providers:
+            if prov is self._active or not prov.available:
+                continue
+            result = prov.generate(system, prompt, max_tokens)
+            if result is not None:
+                self._active = prov  # Switch to working provider
+                return result
+
+        return None
 
 
 # Singleton

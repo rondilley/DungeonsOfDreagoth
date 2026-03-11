@@ -148,3 +148,82 @@ class TestSaveLoad:
         save_game(gs, 1)
         loaded = load_game(1)
         assert loaded.turn == 100
+
+    def test_multi_level_round_trip(self):
+        """Save with 3 explored levels, verify all are restored."""
+        gs = GameState()
+        gs.player = create_character("Explorer", "thief", "halfling")
+        gs.quest_log = QuestLog()
+        gen = DungeonGenerator(seed=77)
+
+        # Generate and populate 3 levels
+        for depth in (1, 2, 3):
+            level = gen.generate(depth)
+            gs.levels[depth] = level
+            gs.entities[depth] = populate_level(level, depth)
+            gs.revealed[depth] = {(i, i) for i in range(5)}
+            gs.visited_rooms[depth] = {0, 1}
+            gs.opened_doors[depth] = {(10, 10)}
+
+        # Simulate game state: player is on depth 2
+        gs.current_depth = 2
+        gs.player_x, gs.player_y = gs.levels[2].stairs_up
+        gs.turn = 150
+
+        # Mark a monster dead on level 1 (simulates combat that happened)
+        ents1 = gs.entities[1]
+        if ents1.monsters:
+            ents1.monsters[0].is_dead = True
+            dead_name = ents1.monsters[0].name
+
+        # Remove a treasure pile on level 1 (simulates picked-up loot)
+        original_treasure_count_1 = len(ents1.treasure_piles)
+        if ents1.treasure_piles:
+            removed_pos = next(iter(ents1.treasure_piles))
+            del ents1.treasure_piles[removed_pos]
+
+        # Save and reload
+        assert save_game(gs, 3)
+        loaded = load_game(3)
+        assert loaded is not None
+
+        # All 3 levels present
+        assert set(loaded.levels.keys()) == {1, 2, 3}
+        assert set(loaded.entities.keys()) == {1, 2, 3}
+        assert set(loaded.revealed.keys()) == {1, 2, 3}
+
+        # Player position preserved
+        assert loaded.current_depth == 2
+        assert loaded.player_x == gs.player_x
+        assert loaded.player_y == gs.player_y
+
+        # Grid fidelity per level
+        for depth in (1, 2, 3):
+            assert (loaded.levels[depth].grid == gs.levels[depth].grid).all(), \
+                f"Grid mismatch on depth {depth}"
+            assert loaded.levels[depth].stairs_up == gs.levels[depth].stairs_up
+            assert loaded.levels[depth].stairs_down == gs.levels[depth].stairs_down
+            assert len(loaded.levels[depth].rooms) == len(gs.levels[depth].rooms)
+
+        # Revealed tiles preserved per level
+        for depth in (1, 2, 3):
+            assert loaded.revealed[depth] == gs.revealed[depth]
+
+        # Visited rooms and opened doors preserved
+        for depth in (1, 2, 3):
+            assert loaded.visited_rooms[depth] == gs.visited_rooms[depth]
+            assert loaded.opened_doors[depth] == gs.opened_doors[depth]
+
+        # Dead monster state preserved on level 1
+        loaded_ents1 = loaded.entities[1]
+        if dead_name:
+            dead_monsters = [m for m in loaded_ents1.monsters if m.is_dead]
+            assert len(dead_monsters) >= 1
+            assert dead_monsters[0].name == dead_name
+
+        # Removed treasure stays removed on level 1
+        assert len(loaded_ents1.treasure_piles) == len(ents1.treasure_piles)
+
+        # Entities on other levels are intact
+        for depth in (2, 3):
+            assert len(loaded.entities[depth].monsters) == len(gs.entities[depth].monsters)

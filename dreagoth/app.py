@@ -9,10 +9,11 @@ from textual.app import App, ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal
 from textual.screen import ModalScreen
-from textual.widgets import Static, Button, Input, Label, Select
+from textual.widgets import Static, Button, Input, Label, Select, OptionList
+from textual.widgets.option_list import Option
 from rich.text import Text
 
-from dreagoth.core.constants import FOV_RADIUS, STARTING_LEVEL
+from dreagoth.core.constants import FOV_RADIUS, STARTING_LEVEL, RACE_DARKVISION
 from dreagoth.core.events import bus
 from dreagoth.core.game_state import GameState
 from dreagoth.character.character import (
@@ -212,12 +213,16 @@ class UseItemScreen(ModalScreen[Item | None]):
         align: center middle;
     }
     #useitem-box {
-        width: 50;
+        width: 60;
         height: auto;
-        max-height: 24;
+        max-height: 30;
         border: double #808080;
         padding: 1 2;
         background: $surface;
+    }
+    #useitem-list {
+        height: 1fr;
+        max-height: 20;
     }
     #useitem-box Button {
         width: 100%;
@@ -225,27 +230,58 @@ class UseItemScreen(ModalScreen[Item | None]):
     }
     """
 
+    BINDINGS = [
+        ("escape", "cancel", "Cancel"),
+    ]
+
     def __init__(self, items: list[Item], player_level: int = 1) -> None:
         super().__init__()
         self._items = items
         self._player_level = player_level
+        # Group by item id, preserving order
+        self._grouped: list[tuple[Item, int]] = []
+        seen: dict[str, int] = {}
+        for item in items:
+            if item.id in seen:
+                idx = seen[item.id]
+                old_item, old_qty = self._grouped[idx]
+                self._grouped[idx] = (old_item, old_qty + 1)
+            else:
+                seen[item.id] = len(self._grouped)
+                self._grouped.append((item, 1))
 
     def compose(self) -> ComposeResult:
         with Static(id="useitem-box"):
             yield Label("Use Item", id="useitem-title")
-            for i, item in enumerate(self._items):
-                yield Button(f"{i+1}. {item.display_info_at(self._player_level)}", id=f"item-{i}")
+            yield OptionList(id="useitem-list")
             yield Button("Cancel", variant="default", id="item-cancel")
+
+    def on_mount(self) -> None:
+        ol = self.query_one("#useitem-list", OptionList)
+        for item, qty in self._grouped:
+            qty_str = f" x{qty}" if qty > 1 else ""
+            ol.add_option(Option(
+                f"{item.display_info_at(self._player_level)}{qty_str}",
+                id=f"use-{item.id}",
+            ))
+        ol.focus()
+
+    def on_option_list_option_selected(self, event: OptionList.OptionSelected) -> None:
+        opt_id = event.option.id
+        if opt_id and opt_id.startswith("use-"):
+            item_id = opt_id[4:]
+            # Find the first matching item in the original list
+            for item in self._items:
+                if item.id == item_id:
+                    self.dismiss(item)
+                    return
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "item-cancel":
             self.dismiss(None)
-        elif event.button.id.startswith("item-"):
-            idx = int(event.button.id[5:])
-            if idx < len(self._items):
-                self.dismiss(self._items[idx])
-            else:
-                self.dismiss(None)
+
+    def action_cancel(self) -> None:
+        self.dismiss(None)
 
 
 # ---------------------------------------------------------------------------
@@ -535,7 +571,9 @@ class DreagothApp(App):
         level = gs.current_level
         radius = FOV_RADIUS
         if gs.player:
+            radius += RACE_DARKVISION.get(gs.player.race, 0)
             radius += gs.player.fov_bonus()
+            radius += gs.player.light_bonus()
         opened = gs.ensure_opened_doors(gs.current_depth)
         visible = compute_fov(level.grid, gs.player_x, gs.player_y, radius, opened)
         gs.visible = visible
@@ -621,6 +659,13 @@ class DreagothApp(App):
         self._refresh_all()
 
     def action_move(self, direction: str) -> None:
+        try:
+            self._do_move(direction)
+        except Exception as exc:
+            self._log(f"[ERROR] {exc}", style="bold bright_red")
+            self._refresh_all()
+
+    def _do_move(self, direction: str) -> None:
         gs = self.game_state
         if self._loading:
             return
@@ -689,6 +734,11 @@ class DreagothApp(App):
             elif tile == Tile.STAIRS_DOWN:
                 self._log("You see stairs leading down. Press > to descend.")
 
+            # Check for traps
+            if self._check_trap(nx, ny):
+                self._refresh_all()
+                return  # Trap triggered — skip further processing
+
             # Check for treasure
             self._check_ground_items()
 
@@ -699,10 +749,27 @@ class DreagothApp(App):
             if tile == Tile.CORRIDOR and random.random() < 0.03:
                 self._wandering_monster()
 
+            # Move monsters toward player
+            self._move_monsters()
+
             bus.publish("player_moved", x=nx, y=ny)
             bus.publish("footstep")
         elif level.in_bounds(nx, ny) and self._try_open_door(nx, ny):
-            pass  # Door was opened; movement handled inside
+            # If the door is now walkable, step through automatically
+            if level.can_walk(nx, ny):
+                gs.player_x = nx
+                gs.player_y = ny
+                gs.turn += 1
+                if gs.player:
+                    regen_msgs = gs.player.tick_buffs()
+                    for rmsg in regen_msgs:
+                        self._log(rmsg, style="bright_green")
+                gs.ensure_opened_doors(gs.current_depth).add((nx, ny))
+                self._update_fov()
+                self._check_ground_items()
+                self._move_monsters()
+                bus.publish("player_moved", x=nx, y=ny)
+                bus.publish("footstep")
         else:
             self._log("You can't go that way.", style="grey50")
 
@@ -734,12 +801,31 @@ class DreagothApp(App):
         player = gs.player
         magically_locked = is_magically_locked(tile_val)
 
-        # --- Magically locked: only spellcasters can help ---
+        # --- Magically locked: spellcasters or scrolls ---
         if magically_locked:
             spell = self._find_unlock_spell(player)
             if spell:
                 return self._door_cast_unlock(spell, x, y, tile_val)
-            self._log("The door is magically sealed!", style="bright_magenta")
+            scroll = self._find_unlock_scroll(player)
+            if scroll:
+                try:
+                    return self._door_use_scroll(scroll, x, y, tile_val)
+                except Exception:
+                    # If scroll use fails, unlock the door anyway
+                    level[x, y] = unlock_door(tile_val)
+                    gs.ensure_opened_doors(gs.current_depth).add((x, y))
+                    if scroll in player.inventory:
+                        player.inventory.remove(scroll)
+                    self._log(
+                        f"You read the {scroll.name} — the lock yields!",
+                        style="bold bright_cyan",
+                    )
+                    bus.publish("door_open")
+                    return True
+            self._log(
+                "The door is magically sealed! You need a Knock or Dispel Magic scroll.",
+                style="bright_magenta",
+            )
             bus.publish("door_locked")
             return True
 
@@ -762,9 +848,12 @@ class DreagothApp(App):
             spell = self._find_unlock_spell(player)
             if spell:
                 return self._door_cast_unlock(spell, x, y, tile_val)
-            self._log("The door is locked and you have no spell slots left.", style="bright_red")
-            bus.publish("door_locked")
-            return True
+            # Fall through to scroll check below
+
+        # 3. Scroll fallback (any class)
+        scroll = self._find_unlock_scroll(player)
+        if scroll:
+            return self._door_use_scroll(scroll, x, y, tile_val)
 
         self._log("The door is locked.", style="bright_red")
         bus.publish("door_locked")
@@ -820,11 +909,76 @@ class DreagothApp(App):
     def _door_cast_unlock(self, spell: SpellTemplate, x: int, y: int, tile_val: int) -> bool:
         """Consume a spell slot, unlock the door, and log the action."""
         gs = self.game_state
+        level = gs.current_level
         player = gs.player
-        player.spell_slots.use(spell.level)
-        gs.current_level[x, y] = unlock_door(tile_val)
+        # Unlock first, then consume slot
+        level[x, y] = unlock_door(tile_val)
         gs.ensure_opened_doors(gs.current_depth).add((x, y))
-        self._log(f"You cast {spell.name} — the lock yields!", style="bright_cyan")
+        player.spell_slots.use(spell.level)
+        self._log(f"You cast {spell.name} — the lock yields!", style="bold bright_cyan")
+        bus.publish("door_open")
+        return True
+
+    def _find_unlock_scroll(self, player: Character) -> "Item | None":
+        """Return a scroll that can unlock doors, or None."""
+        for item in player.inventory:
+            if item.is_scroll and item.spell_id in ("knock", "dispel_magic"):
+                return item
+        return None
+
+    def _find_nearby_locked_door(self) -> tuple[int, int] | None:
+        """Find a locked door adjacent to the player or up to 2 tiles ahead.
+
+        Checks the 4 cardinal neighbors first, then 2 tiles in the
+        player's facing direction.  Returns (x, y) of the door or None.
+        """
+        gs = self.game_state
+        level = gs.current_level
+        px, py = gs.player_x, gs.player_y
+
+        # Check 4 cardinal neighbors
+        for adx, ady in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+            nx, ny = px + adx, py + ady
+            if level.in_bounds(nx, ny):
+                tv = level[nx, ny]
+                if is_door(tv) and (is_locked(tv) or is_magically_locked(tv)):
+                    return (nx, ny)
+
+        # Check 2 tiles ahead in facing direction
+        fdx, fdy = gs.last_direction
+        for dist in (1, 2):
+            nx, ny = px + fdx * dist, py + fdy * dist
+            if level.in_bounds(nx, ny):
+                tv = level[nx, ny]
+                if is_door(tv) and (is_locked(tv) or is_magically_locked(tv)):
+                    return (nx, ny)
+
+        return None
+
+    def _door_use_scroll(self, scroll: "Item", x: int, y: int, tile_val: int) -> bool:
+        """Consume a scroll to unlock a door."""
+        gs = self.game_state
+        level = gs.current_level
+
+        # Unlock the door FIRST, then consume the scroll
+        new_tile = unlock_door(tile_val)
+        level[x, y] = new_tile
+        gs.ensure_opened_doors(gs.current_depth).add((x, y))
+
+        # Verify the write took effect
+        actual = level[x, y]
+        if actual != new_tile:
+            self._log("The magic resists!", style="bright_red")
+            return True
+
+        # Now consume the scroll
+        if scroll in gs.player.inventory:
+            gs.player.inventory.remove(scroll)
+
+        self._log(
+            f"You read the {scroll.name} — the lock yields!",
+            style="bold bright_cyan",
+        )
         bus.publish("door_open")
         return True
 
@@ -841,6 +995,9 @@ class DreagothApp(App):
 
         level = gs.current_level
         tile = level[gs.player_x, gs.player_y]
+
+        pos = (gs.player_x, gs.player_y)
+        ropes = gs.ensure_rope_connections(gs.current_depth)
 
         if direction == "up":
             if tile in (Tile.STAIRS_UP, Tile.STAIRS_BOTH):
@@ -863,6 +1020,19 @@ class DreagothApp(App):
                     autosave(gs)
                     self._refresh_all()
                     self._await_prefetch()
+            elif pos in ropes and gs.current_depth > 1:
+                # Climb up rope to previous level
+                new_depth = gs.current_depth - 1
+                landing = ropes[pos]
+                self._generate_level(new_depth)
+                gs.player_x, gs.player_y = landing
+                gs.current_depth = new_depth
+                gs.turn += 1
+                self._update_fov()
+                self._log(f"You climb the rope back up to level {new_depth}.", style="bold bright_cyan")
+                bus.publish("stairs_ascend")
+                autosave(gs)
+                self._refresh_all()
             else:
                 self._log("There are no stairs going up here.", style="grey50")
 
@@ -891,6 +1061,21 @@ class DreagothApp(App):
                 autosave(gs)
                 self._refresh_all()
                 self._await_prefetch()
+            elif pos in ropes:
+                # Rope already placed — climb down
+                landing = ropes[pos]
+                new_depth = gs.current_depth + 1
+                self._generate_level(new_depth)
+                gs.player_x, gs.player_y = landing
+                gs.current_depth = new_depth
+                gs.turn += 1
+                self._update_fov()
+                self._log(f"You climb down the rope to level {new_depth}.", style="bold bright_cyan")
+                bus.publish("stairs_descend")
+                autosave(gs)
+                self._refresh_all()
+            elif self._try_rope_trap_door():
+                pass  # Handled inside
             else:
                 self._log("There are no stairs going down here.", style="grey50")
 
@@ -1045,7 +1230,7 @@ class DreagothApp(App):
             # Deduct gold and resurrect
             player.gold -= cost
             player.is_dead = False
-            player.hp = player.max_hp // 2
+            player.hp = max(1, player.max_hp // 2)
             player.active_buffs.clear()
 
             # Teleport to stairs up
@@ -1080,6 +1265,16 @@ class DreagothApp(App):
             )
             self._log("Press Q to quit.", style="grey50")
 
+    def _handle_player_death(self) -> None:
+        """Handle player death outside of combat (traps, poison, etc.).
+
+        Reuses the same resurrection/permadeath logic as combat death.
+        """
+        gs = self.game_state
+        # Set up a fake combat=None state so _end_combat_death works
+        gs.combat = None
+        self._end_combat_death()
+
     def _wandering_monster(self) -> None:
         """Chance of a random encounter in corridors."""
         from dreagoth.entities.monster import monster_db
@@ -1089,6 +1284,303 @@ class DreagothApp(App):
         )
         if monster:
             self._start_combat(monster)
+
+    # ------------------------------------------------------------------
+    # Trap system
+    # ------------------------------------------------------------------
+    def _check_trap(self, x: int, y: int) -> bool:
+        """Check for a trap at (x, y). Returns True if a trap interrupted movement."""
+        from dreagoth.dungeon.traps import (
+            check_detection, resolve_trap, TRAP_NAMES, TrapType,
+        )
+
+        gs = self.game_state
+        if gs.current_depth not in gs.entities:
+            return False
+        ents = gs.current_entities
+        trap = ents.trap_at(x, y)
+        if trap is None or trap.triggered:
+            return False
+
+        # Already detected — player walks over safely
+        if trap.detected:
+            name = TRAP_NAMES.get(trap.trap_type, "trap")
+            if trap.trap_type in (TrapType.TRAP_DOOR, TrapType.PIT):
+                has_rope = gs.player and any(
+                    i.id == "rope" for i in gs.player.inventory
+                )
+                # Check if rope already used here
+                ropes = gs.ensure_rope_connections(gs.current_depth)
+                if (x, y) in ropes:
+                    self._log(
+                        f"A rope leads down through the {name}. Press > to climb down.",
+                        style="bright_cyan",
+                    )
+                elif has_rope:
+                    self._log(
+                        f"You see the {name}. You have rope — press > to climb down safely.",
+                        style="bright_cyan",
+                    )
+                else:
+                    self._log(
+                        f"You carefully step around the {name}.",
+                        style="grey70",
+                    )
+            return False
+
+        # Perception check
+        if gs.player and check_detection(gs.player, trap):
+            trap.detected = True
+            name = TRAP_NAMES.get(trap.trap_type, "trap")
+            self._log(f"You spot a {name}!", style="bold bright_magenta")
+            bus.publish("trap_detected")
+            if trap.trap_type in (TrapType.TRAP_DOOR, TrapType.PIT):
+                has_rope = gs.player and any(
+                    i.id == "rope" for i in gs.player.inventory
+                )
+                if has_rope:
+                    self._log(
+                        "You have rope — press > to climb down safely.",
+                        style="bright_cyan",
+                    )
+                else:
+                    self._log(
+                        "Without rope you'd fall. Step carefully.",
+                        style="bright_yellow",
+                    )
+            return False  # Detected just in time, no trigger
+
+        # Trap triggers!
+        trap.triggered = True
+        result = resolve_trap(trap, gs.current_depth)
+        self._log(result.message, style="bold bright_red")
+        bus.publish("trap_triggered")
+
+        if result.damage > 0 and gs.player:
+            actual = gs.player.take_damage(result.damage)
+            self._log(f"You take {actual} damage! ({gs.player.hp}/{gs.player.max_hp} HP)",
+                       style="bright_red")
+            if gs.player.is_dead:
+                self._handle_player_death()
+                return True
+
+        if result.poison and gs.player:
+            from dreagoth.combat.spells import ActiveBuff
+            gs.player.active_buffs.append(ActiveBuff(
+                spell_id="trap_poison",
+                effect="poison_dot",
+                value=0,
+                remaining_turns=result.poison_turns,
+                regen_dice=result.poison_dice,
+            ))
+            self._log("You feel poison coursing through your veins!",
+                       style="bold green")
+
+        if result.alert_all:
+            if gs.current_depth in gs.entities:
+                for m in gs.current_entities.monsters:
+                    if not m.is_dead:
+                        m.is_alert = True
+                self._log("All nearby creatures are alerted to your presence!",
+                           style="bold bright_yellow")
+                bus.publish("monster_alert")
+
+        if result.fall_through:
+            self._fall_through_trap_door(x, y)
+            return True
+
+        return False
+
+    def _fall_through_trap_door(self, trap_x: int, trap_y: int) -> None:
+        """Handle falling through a trap door to the level below."""
+        from dreagoth.dungeon.generator import ensure_clear_path
+        gs = self.game_state
+        new_depth = gs.current_depth + 1
+
+        self._generate_level(new_depth)
+        level_below = gs.levels[new_depth]
+
+        # Find a random walkable position on the level below
+        landing = self._find_random_walkable(level_below)
+        if landing:
+            gs.player_x, gs.player_y = landing
+        elif level_below.stairs_up:
+            gs.player_x, gs.player_y = level_below.stairs_up
+
+        # Ensure a clear path from landing to stairs_up (unlock doors if needed)
+        if level_below.stairs_up:
+            player_pos = (gs.player_x, gs.player_y)
+            if player_pos != level_below.stairs_up:
+                ensure_clear_path(level_below, player_pos, level_below.stairs_up)
+
+        gs.current_depth = new_depth
+        gs.turn += 1
+        # No healing or spell rest — this is a fall, not a rest
+        self._update_fov()
+        self._log(f"You crash onto level {new_depth}!", style="bold bright_red")
+        bus.publish("stairs_descend")
+        autosave(gs)
+
+    def _rope_descend_trap_door(self, trap_x: int, trap_y: int) -> None:
+        """Climb down a trap door using rope. No damage, creates rope connection."""
+        from dreagoth.dungeon.generator import ensure_clear_path
+        gs = self.game_state
+        new_depth = gs.current_depth + 1
+        old_depth = gs.current_depth
+
+        self._generate_level(new_depth)
+        level_below = gs.levels[new_depth]
+
+        # Find landing position
+        landing = self._find_random_walkable(level_below)
+        if not landing:
+            if level_below.stairs_up:
+                landing = level_below.stairs_up
+            else:
+                self._log("The rope can't reach a safe landing!", style="bright_red")
+                return
+
+        # Store bidirectional rope connections
+        ropes_above = gs.ensure_rope_connections(old_depth)
+        ropes_below = gs.ensure_rope_connections(new_depth)
+        ropes_above[(trap_x, trap_y)] = landing
+        ropes_below[landing] = (trap_x, trap_y)
+
+        # Ensure a clear path from landing to stairs_up (unlock doors if needed)
+        if level_below.stairs_up and landing != level_below.stairs_up:
+            ensure_clear_path(level_below, landing, level_below.stairs_up)
+
+        gs.player_x, gs.player_y = landing
+        gs.current_depth = new_depth
+        gs.turn += 1
+        self._update_fov()
+        self._log(f"You climb down the rope to level {new_depth}.", style="bold bright_cyan")
+        bus.publish("stairs_descend")
+        autosave(gs)
+
+    def _find_random_walkable(self, level) -> tuple[int, int] | None:
+        """Find a random walkable position on a level, avoiding stairs and entities."""
+        from dreagoth.dungeon.tiles import is_walkable
+        candidates = []
+        for room in level.rooms:
+            for ry in range(room.y, room.y + room.height):
+                for rx in range(room.x, room.x + room.width):
+                    if level[rx, ry] == Tile.ROOM:
+                        candidates.append((rx, ry))
+        if candidates:
+            random.shuffle(candidates)
+            return candidates[0]
+        return None
+
+    def _try_rope_trap_door(self) -> bool:
+        """If standing on a detected pit/trap door with rope, use rope to descend."""
+        from dreagoth.dungeon.traps import TrapType
+        gs = self.game_state
+        if gs.current_depth not in gs.entities:
+            return False
+        trap = gs.current_entities.trap_at(gs.player_x, gs.player_y)
+        if not trap or trap.trap_type not in (TrapType.TRAP_DOOR, TrapType.PIT) or not trap.detected:
+            return False
+        if not gs.player:
+            return False
+        has_rope = any(i.id == "rope" for i in gs.player.inventory)
+        if not has_rope:
+            self._log("You need rope to climb down safely!", style="bright_yellow")
+            return True  # Handled (message shown)
+        self._rope_descend_trap_door(gs.player_x, gs.player_y)
+        self._refresh_all()
+        return True
+
+    def _move_monsters(self) -> None:
+        """Update monster detection and movement after the player moves."""
+        from dreagoth.core.noise import (
+            noise_level, detection_radius,
+            count_closed_doors_between, DOOR_NOISE_PENALTY,
+        )
+        from dreagoth.dungeon.pathfinding import bfs_next_step
+
+        gs = self.game_state
+        if gs.current_depth not in gs.entities:
+            return
+
+        ents = gs.current_entities
+        level = gs.current_level
+        player_noise = noise_level(gs.player) if gs.player else 2
+        opened = gs.ensure_opened_doors(gs.current_depth)
+
+        # Track occupied positions to prevent monsters stacking
+        occupied: set[tuple[int, int]] = {(gs.player_x, gs.player_y)}
+        for m in ents.monsters:
+            if not m.is_dead:
+                occupied.add((m.x, m.y))
+
+        moved_any = False
+        for monster in ents.monsters:
+            if monster.is_dead:
+                continue
+
+            dist = abs(monster.x - gs.player_x) + abs(monster.y - gs.player_y)
+            detect_range = detection_radius(monster.speed, player_noise)
+
+            # Closed doors between monster and player muffle sound
+            closed_doors = count_closed_doors_between(
+                level, monster.x, monster.y,
+                gs.player_x, gs.player_y, opened,
+            )
+            effective_range = max(1, detect_range - closed_doors * DOOR_NOISE_PENALTY)
+
+            # Detection check
+            if dist <= effective_range:
+                if not monster.is_alert:
+                    monster.is_alert = True
+                    # Only log if the monster is visible
+                    if (monster.x, monster.y) in gs.visible:
+                        self._log(
+                            f"The {monster.name} notices you!",
+                            style="bright_yellow",
+                        )
+                    else:
+                        self._log(
+                            "You hear something stirring in the darkness...",
+                            style="grey70",
+                        )
+                    bus.publish("monster_alert")
+            else:
+                # Lose alert if player moves far enough away
+                if monster.is_alert and dist > effective_range + 5:
+                    monster.is_alert = False
+
+            # Movement: alert monsters move toward the player
+            if not monster.is_alert:
+                continue
+            if dist <= 1:
+                # Adjacent — combat will be triggered on player's next move
+                continue
+
+            next_pos = bfs_next_step(
+                level, monster.x, monster.y,
+                gs.player_x, gs.player_y,
+                max_dist=detect_range,
+                opened_doors=opened,
+            )
+            if next_pos and next_pos not in occupied:
+                occupied.discard((monster.x, monster.y))
+                monster.x, monster.y = next_pos
+                occupied.add(next_pos)
+                moved_any = True
+
+                # If monster moved adjacent to player, start combat
+                new_dist = abs(monster.x - gs.player_x) + abs(monster.y - gs.player_y)
+                if new_dist <= 1:
+                    self._log(
+                        f"A {monster.name} charges at you!",
+                        style="bold bright_red",
+                    )
+                    self._start_combat(monster)
+                    return  # Only one combat per turn
+
+        if moved_any:
+            ents.rebuild_indices()
 
     # ------------------------------------------------------------------
     # Items and inventory
@@ -1156,6 +1648,7 @@ class DreagothApp(App):
     def _on_inventory_action(self, result: str | None) -> None:
         if result:
             self._log(result, style="bright_green")
+            self._update_fov()
             self._refresh_all()
 
     # ------------------------------------------------------------------
@@ -1349,19 +1842,16 @@ class DreagothApp(App):
             self._update_fov()
 
         elif spell.effect == "unlock":
-            # Find adjacent locked door
-            for adx, ady in ((0, -1), (0, 1), (-1, 0), (1, 0)):
-                dx, dy = gs.player_x + adx, gs.player_y + ady
+            door_pos = self._find_nearby_locked_door()
+            if door_pos:
+                dx, dy = door_pos
                 level = gs.current_level
-                if level.in_bounds(dx, dy):
-                    tile_val = level[dx, dy]
-                    if is_door(tile_val) and (is_locked(tile_val) or is_magically_locked(tile_val)):
-                        level[dx, dy] = unlock_door(tile_val)
-                        gs.ensure_opened_doors(gs.current_depth).add((dx, dy))
-                        self._log("The lock clicks open!", style="bright_green")
-                        self._update_fov()
-                        return
-            self._log("There is no locked door nearby.", style="grey50")
+                level[dx, dy] = unlock_door(level[dx, dy])
+                gs.ensure_opened_doors(gs.current_depth).add((dx, dy))
+                self._log("The lock clicks open!", style="bright_green")
+                self._update_fov()
+            else:
+                self._log("There is no locked door nearby.", style="grey50")
 
         elif spell.effect == "detect_magic":
             buff = ActiveBuff(
@@ -1395,6 +1885,11 @@ class DreagothApp(App):
         gs = self.game_state
         bus.publish("use_item")
 
+        if item.is_scroll:
+            self._use_scroll(item)
+            self._refresh_all()
+            return
+
         if gs.in_combat:
             gs.combat.player_use_item(item)
             self._flush_combat_log()
@@ -1408,6 +1903,124 @@ class DreagothApp(App):
                 self._log(msg, style="bright_green")
 
         self._refresh_all()
+
+    def _use_scroll(self, scroll: Item) -> None:
+        """Use a scroll — applies its spell effect and consumes it."""
+        gs = self.game_state
+        player = gs.player
+        spell = spell_db.get(scroll.spell_id)
+        if not spell:
+            self._log(f"The scroll crumbles to dust — the magic is unknown.", style="grey50")
+            player.inventory.remove(scroll)
+            return
+
+        # For unlock scrolls, verify a locked door exists nearby before consuming
+        if spell.effect == "unlock":
+            door_pos = self._find_nearby_locked_door()
+            if door_pos is None:
+                self._log("There is no locked door nearby.", style="grey50")
+                return  # Don't consume the scroll
+            # Consume and unlock
+            player.inventory.remove(scroll)
+            self._log(f"You read the {scroll.name}.", style="bold bright_cyan")
+            dx, dy = door_pos
+            level = gs.current_level
+            level[dx, dy] = unlock_door(level[dx, dy])
+            gs.ensure_opened_doors(gs.current_depth).add((dx, dy))
+            self._log("The lock clicks open!", style="bright_green")
+            self._update_fov()
+            return
+
+        # Remove the scroll from inventory
+        player.inventory.remove(scroll)
+        self._log(f"You read the {scroll.name}.", style="bold bright_cyan")
+
+        # Apply spell effect based on type
+        if spell.type == "combat_damage":
+            if gs.in_combat:
+                from dreagoth.entities.item import roll_dice as roll_spell_dice
+                dmg = max(1, roll_spell_dice(spell.damage))
+                monster = gs.combat.monster
+                actual = monster.take_damage(dmg)
+                self._log(
+                    f"The spell strikes {monster.name} for {actual} damage!",
+                    style="bright_yellow",
+                )
+                if monster.is_dead:
+                    gs.combat.result = CombatResult.PLAYER_WIN
+                    self._end_combat_victory()
+                else:
+                    # Monster retaliates
+                    gs.combat._monster_attacks()
+                    self._flush_combat_log()
+                    if gs.combat.result == CombatResult.PLAYER_DEAD:
+                        self._end_combat_death()
+                gs.turn += 1
+            else:
+                self._log("The spell fizzles — there is no target.", style="grey50")
+
+        elif spell.type == "combat_heal":
+            from dreagoth.entities.item import roll_dice as roll_spell_dice
+            healed = player.heal(roll_spell_dice(spell.heal))
+            self._log(f"You are healed for {healed} HP. ({player.hp}/{player.max_hp})", style="bright_green")
+            if gs.in_combat:
+                gs.combat._monster_attacks()
+                self._flush_combat_log()
+                if gs.combat.result == CombatResult.PLAYER_DEAD:
+                    self._end_combat_death()
+                gs.turn += 1
+
+        elif spell.type == "combat_buff":
+            buff = ActiveBuff(
+                spell_id=spell.id, effect=spell.effect,
+                value=spell.value, remaining_turns=spell.duration,
+            )
+            player.active_buffs.append(buff)
+            self._log(f"{spell.description}", style="bright_cyan")
+            if gs.in_combat:
+                gs.combat._monster_attacks()
+                self._flush_combat_log()
+                if gs.combat.result == CombatResult.PLAYER_DEAD:
+                    self._end_combat_death()
+                gs.turn += 1
+
+        elif spell.type == "utility":
+            # Reuse the same utility logic as spell casting
+            self._apply_scroll_utility(spell)
+
+    def _apply_scroll_utility(self, spell: SpellTemplate) -> None:
+        """Apply a utility spell from a scroll."""
+        gs = self.game_state
+        player = gs.player
+
+        if spell.effect == "fov_extend":
+            buff = ActiveBuff(
+                spell_id=spell.id, effect="fov_extend",
+                value=spell.value, remaining_turns=spell.duration,
+            )
+            player.active_buffs.append(buff)
+            self._log("Magical light illuminates the darkness!", style="bright_yellow")
+            self._update_fov()
+
+        elif spell.effect == "unlock":
+            door_pos = self._find_nearby_locked_door()
+            if door_pos:
+                dx, dy = door_pos
+                level = gs.current_level
+                level[dx, dy] = unlock_door(level[dx, dy])
+                gs.ensure_opened_doors(gs.current_depth).add((dx, dy))
+                self._log("The lock clicks open!", style="bright_green")
+                self._update_fov()
+            else:
+                self._log("There is no locked door nearby.", style="grey50")
+
+        elif spell.effect == "detect_magic":
+            buff = ActiveBuff(
+                spell_id=spell.id, effect="detect_magic",
+                value=spell.value, remaining_turns=spell.duration,
+            )
+            player.active_buffs.append(buff)
+            self._log("Your senses heighten to magical auras.", style="bright_magenta")
 
     # ------------------------------------------------------------------
     # View toggle

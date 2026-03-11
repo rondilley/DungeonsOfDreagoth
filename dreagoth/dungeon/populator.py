@@ -7,10 +7,12 @@ from dataclasses import dataclass, field
 
 from dreagoth.dungeon.dungeon_level import DungeonLevel
 from dreagoth.dungeon.tiles import Tile, is_door
+from dreagoth.dungeon.traps import Trap, TrapType, TRAP_WEIGHTS
 from dreagoth.entities.monster import Monster, monster_db
 from dreagoth.entities.item import Item, equipment_db
 from dreagoth.entities.magic_items import roll_magic_loot
 from dreagoth.entities.npc import NPC, npc_db
+from dreagoth.core.constants import MAX_DUNGEON_DEPTH
 
 
 @dataclass
@@ -20,12 +22,16 @@ class LevelEntities:
     treasure_piles: dict[tuple[int, int], list[Item]] = field(default_factory=dict)
     gold_piles: dict[tuple[int, int], int] = field(default_factory=dict)
     npcs: list[NPC] = field(default_factory=list)
+    traps: list[Trap] = field(default_factory=list)
 
     # Position indices — call rebuild_indices() after mutations
     _monster_index: dict[tuple[int, int], Monster] = field(
         default_factory=dict, repr=False
     )
     _npc_index: dict[tuple[int, int], NPC] = field(
+        default_factory=dict, repr=False
+    )
+    _trap_index: dict[tuple[int, int], Trap] = field(
         default_factory=dict, repr=False
     )
 
@@ -35,6 +41,7 @@ class LevelEntities:
             (m.x, m.y): m for m in self.monsters if not m.is_dead
         }
         self._npc_index = {(n.x, n.y): n for n in self.npcs}
+        self._trap_index = {(t.x, t.y): t for t in self.traps}
 
     def monster_at(self, x: int, y: int) -> Monster | None:
         m = self._monster_index.get((x, y))
@@ -44,6 +51,9 @@ class LevelEntities:
 
     def npc_at(self, x: int, y: int) -> NPC | None:
         return self._npc_index.get((x, y))
+
+    def trap_at(self, x: int, y: int) -> Trap | None:
+        return self._trap_index.get((x, y))
 
     def remove_dead(self) -> None:
         self.monsters = [m for m in self.monsters if not m.is_dead]
@@ -152,6 +162,59 @@ def populate_level(level: DungeonLevel, depth: int) -> LevelEntities:
             npc = npc_db.spawn(template.id, nx, ny)
             used_template_ids.add(template.id)
             entities.npcs.append(npc)
+
+    # Place traps in rooms and corridors
+    occupied = (
+        monster_positions
+        | {(n.x, n.y) for n in entities.npcs}
+        | set(entities.gold_piles.keys())
+        | set(entities.treasure_piles.keys())
+    )
+    if level.stairs_up:
+        occupied.add(level.stairs_up)
+    if level.stairs_down:
+        occupied.add(level.stairs_down)
+
+    # Build trap type weights (no fall-through traps on max depth)
+    weights = dict(TRAP_WEIGHTS)
+    if depth >= MAX_DUNGEON_DEPTH:
+        weights.pop(TrapType.TRAP_DOOR, None)
+        weights.pop(TrapType.PIT, None)
+    trap_types = list(weights.keys())
+    trap_weights = list(weights.values())
+
+    trap_dc = min(10 + depth, 20)
+
+    for room in level.rooms:
+        # Skip stair rooms
+        if level.stairs_up and room.contains(*level.stairs_up):
+            continue
+        if level.stairs_down and room.contains(*level.stairs_down):
+            continue
+        # 20% + 2% per depth chance of a trap per room
+        if random.random() < 0.20 + depth * 0.02:
+            rx = random.randint(room.x, room.x + room.width - 1)
+            ry = random.randint(room.y, room.y + room.height - 1)
+            if (rx, ry) not in occupied and level[rx, ry] == Tile.ROOM:
+                tt = random.choices(trap_types, weights=trap_weights, k=1)[0]
+                entities.traps.append(Trap(tt, rx, ry, difficulty=trap_dc))
+                occupied.add((rx, ry))
+
+    # A few corridor traps (5% per corridor tile, sample up to 3)
+    corridor_tiles = [
+        (x, y)
+        for y in range(level.height)
+        for x in range(level.width)
+        if level[x, y] == Tile.CORRIDOR and (x, y) not in occupied
+    ]
+    corridor_trap_count = min(3, len(corridor_tiles))
+    if corridor_tiles and random.random() < 0.3 + depth * 0.03:
+        chosen_tiles = random.sample(corridor_tiles, corridor_trap_count)
+        for cx, cy in chosen_tiles:
+            if (cx, cy) not in occupied:
+                tt = random.choices(trap_types, weights=trap_weights, k=1)[0]
+                entities.traps.append(Trap(tt, cx, cy, difficulty=trap_dc))
+                occupied.add((cx, cy))
 
     entities.rebuild_indices()
     return entities

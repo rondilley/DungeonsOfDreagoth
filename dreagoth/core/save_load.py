@@ -21,15 +21,15 @@ from dreagoth.entities.npc import NPC
 from dreagoth.quest.quest import Quest, QuestLog, QuestType, QuestStatus, QuestReward
 
 SAVE_DIR = Path(__file__).parent.parent.parent / "saves"
-SAVE_VERSION = 2
+SAVE_VERSION = 3
 NUM_SLOTS = 5
 
 # Safety limits for deserialized data
 _MAX_GRID_DIM = 200  # Max width/height for dungeon grids
 _MAX_HP = 9999
 _MAX_GOLD = 999_999
-_MAX_XP = 999_999
-_MAX_LEVEL = 20
+_MAX_XP = 25_000_000
+_MAX_LEVEL = 25
 _MAX_INVENTORY = 100
 _MAX_QUESTS = 50
 _MAX_MONSTERS = 200
@@ -72,6 +72,9 @@ def _serialize_item(item: Item) -> dict:
         "slot": item.slot, "two_handed": item.two_handed,
         "consumable": item.consumable, "heal_dice": item.heal_dice,
         "regen_dice": item.regen_dice, "regen_turns": item.regen_turns,
+        "spell_id": item.spell_id,
+        "light_radius": item.light_radius,
+        "light_duration": item.light_duration,
         "rarity": item.rarity, "lore": item.lore,
     }
 
@@ -90,6 +93,9 @@ def _deserialize_item(data: dict) -> Item | None:
         slot=data.get("slot", ""), two_handed=data.get("two_handed", False),
         consumable=data.get("consumable", False), heal_dice=data.get("heal_dice", ""),
         regen_dice=data.get("regen_dice", ""), regen_turns=data.get("regen_turns", 0),
+        spell_id=data.get("spell_id", ""),
+        light_radius=data.get("light_radius", 0),
+        light_duration=data.get("light_duration", 0),
         rarity=rarity, lore=data.get("lore", ""),
     )
 
@@ -120,6 +126,7 @@ def _serialize_character(char: Character) -> dict:
         "ring": _serialize_item(char.ring) if char.ring else None,
         "amulet": _serialize_item(char.amulet) if char.amulet else None,
         "is_dead": char.is_dead,
+        "light_remaining": char.light_remaining,
         "spell_slots": {
             "max_slots": char.spell_slots.max_slots,
             "used_slots": char.spell_slots.used_slots,
@@ -161,6 +168,7 @@ def _deserialize_character(data: dict) -> Character:
         max_hp=_clamp(int(data["max_hp"]), 1, _MAX_HP),
         gold=_clamp(int(data["gold"]), 0, _MAX_GOLD),
         is_dead=bool(data["is_dead"]),
+        light_remaining=data.get("light_remaining", 0),
     )
     # Inventory (capped)
     for item_data in data["inventory"][:_MAX_INVENTORY]:
@@ -184,11 +192,14 @@ def _deserialize_character(data: dict) -> Character:
         char.ring = _deserialize_item(data["ring"])
     if data.get("amulet"):
         char.amulet = _deserialize_item(data["amulet"])
-    # Spell slots
+    # Spell slots (clamp to valid range to prevent save tampering)
+    _MAX_SLOT_VAL = 7
     ss = data.get("spell_slots", {})
+    raw_max = ss.get("max_slots", [0, 0, 0])
+    raw_used = ss.get("used_slots", [0, 0, 0])
     char.spell_slots = SpellSlots(
-        max_slots=ss.get("max_slots", [0, 0, 0]),
-        used_slots=ss.get("used_slots", [0, 0, 0]),
+        max_slots=[_clamp(int(s), 0, _MAX_SLOT_VAL) for s in raw_max[:3]],
+        used_slots=[_clamp(int(s), 0, _MAX_SLOT_VAL) for s in raw_used[:3]],
     )
     # Buffs
     for b in data.get("active_buffs", []):
@@ -247,6 +258,7 @@ def _serialize_monster(m: Monster) -> dict:
         "hp": m.hp, "max_hp": m.max_hp,
         "x": m.x, "y": m.y,
         "is_dead": m.is_dead,
+        "is_alert": m.is_alert,
     }
 
 
@@ -260,8 +272,9 @@ def _deserialize_monster(data: dict) -> Monster | None:
         hp=data["hp"], max_hp=data["max_hp"],
         ac=t.ac, attack_bonus=t.attack_bonus, damage=t.damage,
         xp=t.xp, special=t.special, loot_tier=t.loot_tier,
-        symbol=t.symbol, color=t.color,
-        x=data["x"], y=data["y"], is_dead=data["is_dead"],
+        symbol=t.symbol, color=t.color, speed=t.speed,
+        x=data["x"], y=data["y"],
+        is_dead=data["is_dead"], is_alert=data.get("is_alert", False),
     )
 
 
@@ -285,6 +298,31 @@ def _deserialize_npc(data: dict) -> NPC | None:
     return npc
 
 
+def _serialize_trap(t) -> dict:
+    return {
+        "type": t.trap_type.value,
+        "x": t.x, "y": t.y,
+        "detected": t.detected,
+        "triggered": t.triggered,
+        "difficulty": t.difficulty,
+    }
+
+
+def _deserialize_trap(data: dict):
+    from dreagoth.dungeon.traps import Trap, TrapType
+    try:
+        trap_type = TrapType(data["type"])
+    except (ValueError, KeyError):
+        return None  # Invalid or missing trap type — skip
+    return Trap(
+        trap_type=trap_type,
+        x=data["x"], y=data["y"],
+        detected=data.get("detected", False),
+        triggered=data.get("triggered", False),
+        difficulty=data.get("difficulty", 12),
+    )
+
+
 def _serialize_entities(ents: LevelEntities) -> dict:
     return {
         "monsters": [_serialize_monster(m) for m in ents.monsters],
@@ -297,6 +335,7 @@ def _serialize_entities(ents: LevelEntities) -> dict:
             for (x, y), gold in ents.gold_piles.items()
         },
         "npcs": [_serialize_npc(n) for n in ents.npcs],
+        "traps": [_serialize_trap(t) for t in ents.traps],
     }
 
 
@@ -323,6 +362,10 @@ def _deserialize_entities(data: dict) -> LevelEntities:
         n = _deserialize_npc(nd)
         if n:
             ents.npcs.append(n)
+    for td in data.get("traps", [])[:100]:
+        t = _deserialize_trap(td)
+        if t:
+            ents.traps.append(t)
     ents.rebuild_indices()
     return ents
 
@@ -419,6 +462,13 @@ def save_game(gs: GameState, slot: int) -> bool:
                 str(d): [list(pos) for pos in doors]
                 for d, doors in gs.opened_doors.items()
             },
+            "rope_connections": {
+                str(d): {
+                    f"{x},{y}": list(landing)
+                    for (x, y), landing in conns.items()
+                }
+                for d, conns in gs.rope_connections.items()
+            },
             "quest_log": _serialize_quest_log(gs.quest_log) if gs.quest_log else None,
             "unique_items_dropped": list(unique_item_db.dropped_ids),
         }
@@ -463,6 +513,14 @@ def load_game(slot: int) -> GameState | None:
 
         for d_str, doors_data in data.get("opened_doors", {}).items():
             gs.opened_doors[int(d_str)] = {tuple(pos) for pos in doors_data}
+
+        for d_str, conns_data in data.get("rope_connections", {}).items():
+            depth = int(d_str)
+            gs.rope_connections[depth] = {}
+            for key, landing in conns_data.items():
+                parts = key.split(",")
+                if len(parts) == 2 and isinstance(landing, list) and len(landing) == 2:
+                    gs.rope_connections[depth][(int(parts[0]), int(parts[1]))] = (int(landing[0]), int(landing[1]))
 
         if data.get("quest_log"):
             gs.quest_log = _deserialize_quest_log(data["quest_log"])
@@ -517,4 +575,9 @@ def _migrate(data: dict) -> None:
         if player:
             for slot in ("helmet", "boots", "gloves", "ring", "amulet"):
                 player.setdefault(slot, None)
+    if version < 3:
+        # v2 → v3: add traps to entities and rope_connections
+        for ent_data in data.get("entities", {}).values():
+            ent_data.setdefault("traps", [])
+        data.setdefault("rope_connections", {})
     data["version"] = SAVE_VERSION

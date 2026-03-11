@@ -234,6 +234,8 @@ class TestStartupGeneration:
         assert len(data["unique_items"]) == before + 3
 
     def test_no_duplicate_names(self):
+        # Start fresh so we only test generation logic, not accumulated state
+        unique_item_db.templates.clear()
         new_items = generate_startup_uniques(10)
         names = [item.name for item in unique_item_db.templates]
         assert len(names) == len(set(names))

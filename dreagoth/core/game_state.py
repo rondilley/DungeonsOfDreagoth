@@ -31,6 +31,11 @@ class GameState:
     visited_rooms: dict[int, set[int]] = field(default_factory=dict)
     opened_doors: dict[int, set[tuple[int, int]]] = field(default_factory=dict)
 
+    # Rope connections from trap doors: depth -> {(x,y): (land_x, land_y) on depth+1}
+    rope_connections: dict[int, dict[tuple[int, int], tuple[int, int]]] = field(
+        default_factory=dict
+    )
+
     # Player facing direction (dx, dy) for first-person view
     last_direction: tuple[int, int] = (0, -1)
 
@@ -75,3 +80,8 @@ class GameState:
         if depth not in self.opened_doors:
             self.opened_doors[depth] = set()
         return self.opened_doors[depth]
+
+    def ensure_rope_connections(self, depth: int) -> dict[tuple[int, int], tuple[int, int]]:
+        if depth not in self.rope_connections:
+            self.rope_connections[depth] = {}
+        return self.rope_connections[depth]

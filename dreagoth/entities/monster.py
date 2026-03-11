@@ -45,9 +45,11 @@ class Monster:
     loot_tier: int
     symbol: str
     color: str
+    speed: int = 9
     x: int = 0
     y: int = 0
     is_dead: bool = False
+    is_alert: bool = False
 
     def roll_damage(self) -> int:
         return max(1, roll_dice(self.damage))
@@ -86,7 +88,8 @@ class MonsterDB:
             hp=hp, max_hp=hp, ac=t.ac,
             attack_bonus=t.attack_bonus, damage=t.damage,
             xp=t.xp, special=t.special, loot_tier=t.loot_tier,
-            symbol=t.symbol, color=t.color, x=x, y=y,
+            symbol=t.symbol, color=t.color, speed=t.speed,
+            x=x, y=y,
         )
 
     def eligible_for_level(self, depth: int) -> list[MonsterTemplate]:

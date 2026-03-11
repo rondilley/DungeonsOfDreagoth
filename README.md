@@ -28,20 +28,24 @@ python -m dreagoth
 ## Features
 
 - **Dungeon Generation** — Procedural 80x40 grid ported from 1991 QBasic, 25 rooms/level, MST-connected corridors, multi-level stair traversal, locked and magically locked doors
-- **Fog of War** — Recursive 8-octant shadowcasting FOV, extended by Light spell
+- **Fog of War & Lighting** — Recursive 8-octant shadowcasting FOV. Race-based darkvision (dwarf sees furthest, human has none). Light spell, torches, and lanterns extend FOV radius and tint visible tiles warm yellow. Light sources burn down over time (torch: 500 turns, lantern: 1000 turns) with flicker warning. Carrying light increases monster detection range
 - **Character System** — 4 classes (Fighter/Mage/Thief/Cleric), 4 races (Human/Elf/Dwarf/Halfling), D&D ability scores (4d6 drop lowest), racial modifiers
-- **Equipment** — 76 items across weapons, armor, accessories, clothing, provisions, consumables, and misc. 8 equipment slots (weapon, armor, shield, helmet, boots, gloves, ring, amulet), class restrictions, gold economy
+- **Equipment** — 84 items across weapons, armor, accessories, clothing, provisions, consumables, and misc. 8 equipment slots (weapon, armor, shield, helmet, boots, gloves, ring, amulet), class restrictions, gold economy. Torches and lanterns equip in shield slot as light sources
+- **Magic Items** — Procedurally generated unique items with AI-generated names and lore. Dropped as rare loot scaling with dungeon depth
 - **Food & Regen** — Provisions (rations, ale) are consumable and heal over time via a regen buff, ticking each turn as the player explores. Potions and bandages still heal instantly
 - **Combat** — Turn-based D&D-style: d20 attack rolls, initiative, critical hits (2x damage on nat 20), fumbles (nat 1), monster special abilities (poison, paralyze, drain, regen)
-- **Monsters** — 22 types scaling with dungeon depth: Giant Rats and Kobolds on level 1 up to Vampires and Young Black Dragons on level 14. Loot drops and XP rewards
+- **Monsters** — 30 types scaling with dungeon depth: Giant Rats and Kobolds on level 1 up to Vampires and Young Black Dragons on level 14. Loot drops and XP rewards. Noise-based detection AI with BFS pathfinding — alert monsters hunt the player through opened doors
+- **Stealth & Noise** — Detection range based on character class, race, armor weight, and light sources. Closed doors muffle sound significantly (-4 range per door). Thieves and halflings are quietest; fighters in plate with torches are loudest
+- **Traps** — 5 trap types (pit, spike, poison dart, alarm, trap door). Perception-based detection using WIS modifier + class/race bonuses vs difficulty. Trap doors enable level descent with fall damage, or safe descent using rope with bidirectional connections
 - **Spells** — 12 spells (6 Mage, 6 Cleric) with 3-level slot progression. Combat spells and utility buffs (Light extends FOV). Slots restored on stair rest
-- **NPCs** — 11 NPC types: 4 merchants (buy/sell with depth-tiered stock), 2 quest givers, 2 sages, 3 wanderers. AI-generated dialogue with fallback templates
+- **NPCs** — 11 NPC types: 4 merchants (buy/sell with tiered stock including adventuring supplies), 2 quest givers, 2 sages, 3 wanderers. AI-generated dialogue with fallback templates
 - **Quests** — Kill monsters and explore depth quest types with progress tracking and AI-narrated offers/completions
 - **AI Dungeon Master** — Claude-powered atmospheric narration for rooms, combat, kills, crits, level themes, treasure, and NPC dialogue. SQLite cache prevents duplicate API calls. Template fallbacks for 100% offline play. Prefetch on level descent
-- **Save/Load** — JSON serialization with 5 manual slots + autosave. Items stored by ID for compact saves
-- **First-Person View** — ASCII corridor renderer (Tab toggles with map view), minimap in stats panel
-- **Command Parser** — 21 commands with aliases and tab completion, Vi-style `:` input mode
-- **Resurrection** — Gold-based revival on death: equipment dropped as treasure pile, respawn at stairs with half HP. No gold = permanent death
+- **Save/Load** — JSON serialization with 5 manual slots + autosave. Items stored by ID for compact saves. Save version migration with data validation
+- **First-Person View** — ASCII corridor renderer (V toggles with map view), anchored to top-right corner of map panel. Minimap in stats panel
+- **Inventory** — Identical items stacked with quantity display. OptionList-based equip/unequip/use interface
+- **Command Parser** — 25 commands with aliases and tab completion, Vi-style `:` input mode
+- **Resurrection** — Gold-based revival on death: equipment dropped as treasure pile, respawn at stairs with half HP (minimum 1). No gold = permanent death
 - **Audio** — Event-driven retro sound effects (19 WAV tones, stdlib-generated). Fallback chain: playsound3 → winsound → aplay → bell → silent
 - **TUI** — Rich terminal interface with map/first-person panel, character stats sidebar (HP bar, abilities, equipment, minimap, spell slots), scrollable narrative log, and command bar
 
@@ -61,11 +65,11 @@ python -m dreagoth
 
 ```
 dreagoth/
-  core/          # Engine: constants, dice, events, game_state, save_load, command_parser
-  dungeon/       # Generation: tiles, rooms, corridors, FOV, generator, populator
-  character/     # Player: character creation, classes, races, leveling
+  core/          # Engine: constants, dice, events, game_state, save_load, command_parser, noise
+  dungeon/       # Generation: tiles, rooms, corridors, FOV, generator, populator, traps, pathfinding
+  character/     # Player: character creation, classes, races, leveling, light sources
   combat/        # Turn-based D&D combat engine, spells
-  entities/      # Items (76), monsters (22), NPCs (11), equipment database
+  entities/      # Items (84), monsters (30), NPCs (11), magic items, equipment database
   ai/            # AI DM: Anthropic client, narration, SQLite cache, fallbacks
   quest/         # Quest system: kill monsters, explore depth
   audio/         # Sound manager, retro tone generator
@@ -73,7 +77,7 @@ dreagoth/
   data/          # equipment.json, monsters.json, npcs.json, spells.json, sounds.json
 Old_Code/        # Original 1991 QBasic source files
 saves/           # Save game slots (JSON) and AI cache (SQLite)
-tests/           # 189 tests across 10 files
+tests/           # 345 tests across 18 files
 ```
 
 ## Original Source

@@ -130,6 +130,6 @@ class TestSoundManager:
 
     def test_mappings_loaded(self):
         sm = SoundManager()
-        assert len(sm._mappings) == 21
+        assert len(sm._mappings) == 23
         assert sm._mappings.get("footstep") == "footstep.wav"
         assert sm._mappings.get("combat_start") == "combat_start.wav"

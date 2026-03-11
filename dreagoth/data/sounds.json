@@ -19,5 +19,7 @@
     "npc_talk": "npc_talk.wav",
     "ui_error": "ui_error.wav",
     "use_item": "pickup_item.wav",
-    "player_resurrect": "magic_buff.wav"
+    "player_resurrect": "magic_buff.wav",
+    "trap_detected": "room_enter.wav",
+    "trap_triggered": "combat_start.wav"
 }

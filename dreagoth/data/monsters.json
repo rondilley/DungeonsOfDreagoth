@@ -21,6 +21,15 @@
     {"id": "vampire", "name": "Vampire", "min_level": 10, "max_level": 14, "hp_dice": "8d8", "ac": 2, "attack_bonus": 7, "damage": "2d6+2", "xp": 500, "speed": 12, "special": "drain", "loot_tier": 4, "symbol": "V", "color": "bright_red"},
     {"id": "hill_giant", "name": "Hill Giant", "min_level": 10, "max_level": 14, "hp_dice": "8d8", "ac": 3, "attack_bonus": 6, "damage": "2d8", "xp": 400, "speed": 12, "special": null, "loot_tier": 4, "symbol": "H", "color": "bright_yellow"},
     {"id": "spectre", "name": "Spectre", "min_level": 11, "max_level": 14, "hp_dice": "7d8", "ac": 2, "attack_bonus": 7, "damage": "2d6", "xp": 450, "speed": 15, "special": "drain", "loot_tier": 4, "symbol": "S", "color": "bright_cyan"},
-    {"id": "black_dragon", "name": "Young Black Dragon", "min_level": 12, "max_level": 14, "hp_dice": "10d8", "ac": 1, "attack_bonus": 8, "damage": "3d6", "xp": 750, "speed": 12, "special": "poison", "loot_tier": 4, "symbol": "D", "color": "bright_green"}
+    {"id": "black_dragon", "name": "Young Black Dragon", "min_level": 12, "max_level": 14, "hp_dice": "10d8", "ac": 1, "attack_bonus": 8, "damage": "3d6", "xp": 750, "speed": 12, "special": "poison", "loot_tier": 4, "symbol": "D", "color": "bright_green"},
+
+    {"id": "frost_giant", "name": "Frost Giant", "min_level": 13, "max_level": 18, "hp_dice": "10d8+10", "ac": 2, "attack_bonus": 8, "damage": "3d6", "xp": 800, "speed": 12, "special": null, "loot_tier": 4, "symbol": "H", "color": "bright_cyan"},
+    {"id": "beholder", "name": "Beholder", "min_level": 14, "max_level": 20, "hp_dice": "11d8", "ac": 0, "attack_bonus": 9, "damage": "2d8+2", "xp": 1200, "speed": 6, "special": "paralyze", "loot_tier": 4, "symbol": "E", "color": "bright_magenta"},
+    {"id": "fire_giant", "name": "Fire Giant", "min_level": 15, "max_level": 20, "hp_dice": "11d8+11", "ac": 1, "attack_bonus": 9, "damage": "3d8", "xp": 1000, "speed": 12, "special": null, "loot_tier": 4, "symbol": "H", "color": "bright_red"},
+    {"id": "lich", "name": "Lich", "min_level": 16, "max_level": 22, "hp_dice": "11d8", "ac": 0, "attack_bonus": 10, "damage": "2d8+4", "xp": 1500, "speed": 9, "special": "drain", "loot_tier": 4, "symbol": "L", "color": "bright_magenta"},
+    {"id": "red_dragon", "name": "Red Dragon", "min_level": 17, "max_level": 23, "hp_dice": "14d8", "ac": -1, "attack_bonus": 11, "damage": "4d6", "xp": 2000, "speed": 12, "special": null, "loot_tier": 4, "symbol": "D", "color": "bright_red"},
+    {"id": "iron_golem", "name": "Iron Golem", "min_level": 18, "max_level": 24, "hp_dice": "18d8", "ac": -2, "attack_bonus": 11, "damage": "4d6+4", "xp": 2500, "speed": 6, "special": "regen", "loot_tier": 4, "symbol": "G", "color": "grey70"},
+    {"id": "demon_lord", "name": "Demon Lord", "min_level": 20, "max_level": 25, "hp_dice": "16d8", "ac": -3, "attack_bonus": 12, "damage": "4d8", "xp": 3500, "speed": 12, "special": "drain", "loot_tier": 4, "symbol": "D", "color": "bright_magenta"},
+    {"id": "ancient_wyrm", "name": "Ancient Wyrm", "min_level": 22, "max_level": 25, "hp_dice": "20d8", "ac": -4, "attack_bonus": 14, "damage": "5d8", "xp": 5000, "speed": 12, "special": "poison", "loot_tier": 4, "symbol": "W", "color": "bright_red"}
   ]
 }

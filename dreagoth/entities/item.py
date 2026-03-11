@@ -51,6 +51,11 @@ class Item:
     heal_dice: str = ""
     regen_dice: str = ""   # heal-over-time per turn (e.g. "1d2")
     regen_turns: int = 0   # how many turns the regen lasts
+    # Scroll: references a spell_id from spells.json (consumable, single-use)
+    spell_id: str = ""
+    # Light source fields
+    light_radius: int = 0     # FOV bonus when equipped/active
+    light_duration: int = 0   # turns until burnout (0 = permanent like lantern)
     # Rarity: common (white), magic (green), rare (blue), epic (purple), unique (orange)
     rarity: str = "common"
     lore: str = ""
@@ -90,6 +95,14 @@ class Item:
         return self.consumable
 
     @property
+    def is_scroll(self) -> bool:
+        return self.category == "scrolls" and bool(self.spell_id)
+
+    @property
+    def is_light_source(self) -> bool:
+        return self.light_radius > 0
+
+    @property
     def is_equippable(self) -> bool:
         """True if this item can be equipped in any slot."""
         return self.is_weapon or bool(self.slot)
@@ -121,6 +134,10 @@ class Item:
             parts.append(f"[heal {self._heal_str(level)}]")
         if self.regen_dice:
             parts.append(f"[regen {self.regen_dice}/turn x{self.regen_turns}]")
+        if self.spell_id:
+            parts.append(f"[spell: {self.spell_id}]")
+        if self.light_radius:
+            parts.append(f"[light +{self.light_radius}]")
         if self.ac_bonus:
             parts.append(f"AC-{self.ac_bonus}")
         if self.attack_mod:
@@ -172,14 +189,16 @@ class EquipmentDB:
         elif tier == "provisions":
             items = (self.by_category("provisions")
                      + self.by_category("clothing")
-                     + self.by_category("consumables"))
+                     + self.by_category("consumables")
+                     + self.by_category("misc"))
             return sorted(items, key=lambda i: i.gold_value)
         elif tier == "armor":
             return (self.by_category("armor")
                     + self.by_category("accessories"))
         elif tier == "magic":
-            # Magic merchants sell accessories and expensive misc items
+            # Magic merchants sell accessories, scrolls, and expensive misc items
             return (self.by_category("accessories")
+                    + self.by_category("scrolls")
                     + [i for i in self.items.values()
                        if i.category in ("misc",) and i.gold_value >= 5])
         return []

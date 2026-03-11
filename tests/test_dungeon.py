@@ -154,6 +154,53 @@ class TestGenerator:
         level2 = DungeonGenerator(seed=123).generate(1)
         assert np.array_equal(level1.grid, level2.grid)
 
+    def test_doors_have_proper_doorframes(self):
+        """Every door must have wall tiles on its perpendicular axis."""
+        from dreagoth.dungeon.tiles import is_door, base_tile
+        # Test across multiple seeds and depths for robustness
+        for seed in range(10):
+            for depth in (1, 3, 5):
+                gen = DungeonGenerator(seed=seed)
+                level = gen.generate(depth)
+                for y in range(level.height):
+                    for x in range(level.width):
+                        tv = level[x, y]
+                        if not is_door(tv):
+                            continue
+                        bt = base_tile(tv)
+                        if bt in (Tile.DOOR_NS, Tile.SECRET_DOOR_NS):
+                            # N/S traffic: walls must be on E and W
+                            left = level[x - 1, y] if level.in_bounds(x - 1, y) else Tile.WALL
+                            right = level[x + 1, y] if level.in_bounds(x + 1, y) else Tile.WALL
+                            assert left == Tile.WALL and right == Tile.WALL, (
+                                f"DOOR_NS at ({x},{y}) seed={seed} depth={depth} "
+                                f"missing wall doorframe: left={left:#x} right={right:#x}"
+                            )
+                        else:
+                            # E/W traffic: walls must be on N and S
+                            above = level[x, y - 1] if level.in_bounds(x, y - 1) else Tile.WALL
+                            below = level[x, y + 1] if level.in_bounds(x, y + 1) else Tile.WALL
+                            assert above == Tile.WALL and below == Tile.WALL, (
+                                f"DOOR_EW at ({x},{y}) seed={seed} depth={depth} "
+                                f"missing wall doorframe: above={above:#x} below={below:#x}"
+                            )
+
+    def test_doors_not_inside_rooms(self):
+        """No door should be placed inside a room's interior."""
+        from dreagoth.dungeon.tiles import is_door
+        for seed in range(10):
+            gen = DungeonGenerator(seed=seed)
+            level = gen.generate(3)
+            for y in range(level.height):
+                for x in range(level.width):
+                    if not is_door(level[x, y]):
+                        continue
+                    for room in level.rooms:
+                        assert not room.contains(x, y), (
+                            f"Door at ({x},{y}) is inside room {room.room_id} "
+                            f"(seed={seed})"
+                        )
+
 
 class TestFOV:
     def test_player_always_visible(self):

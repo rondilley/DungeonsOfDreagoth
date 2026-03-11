@@ -125,10 +125,14 @@ class DungeonGenerator:
     def _place_doors(self, level: DungeonLevel, depth: int) -> None:
         """Place doors at room/corridor boundaries.
 
-        All candidate positions across every room are collected, then
-        grouped into global connected components (4-adjacent flood fill)
-        so that clusters — even spanning two rooms — produce only a
-        single door (the one closest to the cluster centroid).
+        A valid door position must form a proper doorframe: a corridor
+        tile adjacent to a room with walls on the perpendicular sides
+        (the doorjambs).  This prevents doors from appearing inside
+        rooms or in wide-open areas between close rooms.
+
+        All valid candidates are grouped into global connected
+        components (4-adjacent flood fill) so that clusters produce
+        only a single door (the one closest to the cluster centroid).
         """
         # 1. Convert corridor tiles in room-to-room gaps to ROOM.
         #    Iterate until stable because converting one tile can expose
@@ -136,8 +140,9 @@ class DungeonGenerator:
         self._convert_room_gaps(level)
 
         # 2. Collect ALL door candidates globally, remembering which
-        #    room each came from (for orientation).
+        #    room each came from (for orientation) and their orientation.
         candidate_room: dict[tuple[int, int], Room] = {}
+        candidate_orient: dict[tuple[int, int], Tile] = {}
         for room in level.rooms:
             for bx in range(room.x - 1, room.x + room.width + 1):
                 for by in range(room.y - 1, room.y + room.height + 1):
@@ -147,30 +152,39 @@ class DungeonGenerator:
                         continue
                     if level[bx, by] != Tile.CORRIDOR:
                         continue
+                    # Must be inside any other room either
+                    if any(r.contains(bx, by) for r in level.rooms):
+                        continue
+                    # Must be adjacent to this room
+                    adjacent = False
                     for adx, ady in ((0, -1), (0, 1), (-1, 0), (1, 0)):
                         if room.contains(bx + adx, by + ady):
-                            candidate_room[(bx, by)] = room
+                            adjacent = True
                             break
+                    if not adjacent:
+                        continue
+                    # Determine orientation and check for a proper doorframe:
+                    # walls on the perpendicular axis form the doorjambs.
+                    orient = self._doorframe_orientation(level, bx, by)
+                    if orient is None:
+                        continue
+                    candidate_room[(bx, by)] = room
+                    candidate_orient[(bx, by)] = orient
 
         if not candidate_room:
             return
 
-        # 2. Group into global connected components (4-adjacent)
+        # 3. Group into global connected components (4-adjacent)
         components = self._flood_fill_components(list(candidate_room))
 
-        # 3. Place one door per component (closest to centroid)
+        # 4. Place one door per component (closest to centroid)
         for comp in components:
             cx = sum(p[0] for p in comp) / len(comp)
             cy = sum(p[1] for p in comp) / len(comp)
+            # Prefer candidates that have a valid doorframe
             best = min(comp, key=lambda p: (p[0] - cx) ** 2 + (p[1] - cy) ** 2)
             bx, by = best
-            room = candidate_room[(bx, by)]
-
-            # Determine door orientation
-            if bx < room.x or bx >= room.x + room.width:
-                door_tile = Tile.DOOR_EW
-            else:
-                door_tile = Tile.DOOR_NS
+            door_tile = candidate_orient[(bx, by)]
 
             # Apply lock / secret flags based on depth
             flags = 0
@@ -186,6 +200,34 @@ class DungeonGenerator:
                     door_tile = Tile.SECRET_DOOR_EW
 
             level[bx, by] = int(door_tile) | flags
+
+    @staticmethod
+    def _doorframe_orientation(
+        level: DungeonLevel, x: int, y: int,
+    ) -> Tile | None:
+        """Return door orientation if (x, y) has a valid doorframe, else None.
+
+        A valid doorframe is a 1-tile-wide chokepoint:
+        - DOOR_NS (N/S traffic): walls or out-of-bounds on east and west
+        - DOOR_EW (E/W traffic): walls or out-of-bounds on north and south
+        """
+        def is_frame(nx: int, ny: int) -> bool:
+            """True if this tile can serve as a doorjamb (wall-like)."""
+            if not level.in_bounds(nx, ny):
+                return True
+            return level[nx, ny] == Tile.WALL
+
+        ew_frame = is_frame(x - 1, y) and is_frame(x + 1, y)
+        ns_frame = is_frame(x, y - 1) and is_frame(x, y + 1)
+
+        # Exactly one axis should have walls (a proper chokepoint).
+        # If both axes have walls it's a dead-end pocket — skip.
+        # If neither axis has walls it's an open area — skip.
+        if ew_frame and not ns_frame:
+            return Tile.DOOR_NS  # Walls E/W → traffic flows N/S
+        if ns_frame and not ew_frame:
+            return Tile.DOOR_EW  # Walls N/S → traffic flows E/W
+        return None
 
     @staticmethod
     def _convert_room_gaps(level: DungeonLevel) -> None:
@@ -313,3 +355,41 @@ class DungeonGenerator:
             if is_door(tv) and tv != unlock_door(tv):
                 level[x, y] = unlock_door(tv)
             pos = came_from.get(pos)
+
+
+def ensure_clear_path(level: DungeonLevel, start: tuple[int, int], goal: tuple[int, int]) -> bool:
+    """BFS from start to goal, unlocking any doors along the shortest path.
+
+    Returns True if a path was found (and doors unlocked), False otherwise.
+    Used to guarantee the player can reach stairs after falling through a trap.
+    """
+    def passable(x: int, y: int) -> bool:
+        if not level.in_bounds(x, y):
+            return False
+        tv = level[x, y]
+        return is_walkable(tv) or is_door(tv)
+
+    queue: deque[tuple[int, int]] = deque([start])
+    came_from: dict[tuple[int, int], tuple[int, int] | None] = {start: None}
+
+    while queue:
+        cx, cy = queue.popleft()
+        if (cx, cy) == goal:
+            break
+        for dx, dy in ((0, -1), (0, 1), (-1, 0), (1, 0)):
+            nx, ny = cx + dx, cy + dy
+            if (nx, ny) not in came_from and passable(nx, ny):
+                came_from[(nx, ny)] = (cx, cy)
+                queue.append((nx, ny))
+    else:
+        return False
+
+    # Reconstruct path and unlock any locked doors
+    pos: tuple[int, int] | None = goal
+    while pos is not None:
+        x, y = pos
+        tv = level[x, y]
+        if is_door(tv) and tv != unlock_door(tv):
+            level[x, y] = unlock_door(tv)
+        pos = came_from.get(pos)
+    return True

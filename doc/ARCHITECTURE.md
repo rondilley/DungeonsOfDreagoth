@@ -13,23 +13,29 @@ graph TD
     App --> EB[EventBus]
     App --> DM[DungeonMaster]
     App --> CE[CombatEngine]
+    App --> MonAI[Monster AI<br/>Detection + BFS]
 
-    GS --> Char[Character<br/>Inventory]
-    GS --> SL[Save/Load<br/>JSON, 5 slots]
-    Char --> Items[Items<br/>EquipmentDB 76]
+    GS --> Char[Character<br/>Inventory, Light]
+    GS --> SL[Save/Load<br/>JSON, 5 slots, v3]
+    Char --> Items[Items<br/>EquipmentDB 84]
+    Char --> MagicItems[Magic Items<br/>UniqueItemDB]
 
     Gen --> Pop[Populator]
     Pop --> DL[DungeonLevel<br/>numpy 80x40]
     Pop --> NPCs[NPC DB 11]
-    DL --> FOV[FOV<br/>Shadowcasting]
+    Pop --> Traps[Trap System<br/>5 types]
+    DL --> FOV[FOV<br/>Shadowcasting +<br/>Darkvision + Light]
 
     DM -->|cache-first| AIC[AIClient<br/>Claude Sonnet]
     DM -->|cache hit| Cache[AICache<br/>SQLite]
     DM -->|API fail| FB[Fallback<br/>Templates]
 
-    CE --> Mon[Monster<br/>MonsterDB 22]
+    CE --> Mon[Monster<br/>MonsterDB 30]
     CE --> Spells[SpellDB 12<br/>Mage + Cleric]
     CE --> Quests[QuestLog<br/>Kill / Explore]
+
+    MonAI --> Noise[Noise System<br/>Class + Race + Armor<br/>+ Light + Doors]
+    MonAI --> BFS[BFS Pathfinding<br/>Opened doors only]
 
     App --> Audio[SoundManager<br/>Event-driven]
 ```
@@ -37,29 +43,40 @@ graph TD
 ## Core Modules
 
 ### `core/constants.py`
-All tuneable game parameters. Grid is 80x40 (expanded from original 80x24). Key values: `ROOMS_PER_LEVEL=25`, `FOV_RADIUS=8`, room sizes 3-8 x 3-6. Dungeon depth is unlimited — monsters and NPCs scale through level 14+.
+All tuneable game parameters. Grid is 80x40 (expanded from original 80x24). Key values: `ROOMS_PER_LEVEL=25`, `FOV_RADIUS=8`, room sizes 3-8 x 3-6. Dungeon depth is unlimited — monsters and NPCs scale through level 14+. `RACE_DARKVISION` dict: human=0, elf=2, dwarf=3, halfling=1.
 
 ### `core/events.py`
-Synchronous pub/sub event bus. Single global instance `bus`. Components subscribe to named events (strings); publishers call `bus.publish("event_name", **data)`. Current events: `player_moved`.
+Synchronous pub/sub event bus. Single global instance `bus`. Components subscribe to named events (strings); publishers call `bus.publish("event_name", **data)`. Exception-safe: handler errors are caught and don't kill other handlers. Publish iterates over a list copy to allow handler self-removal during iteration. Safe unsubscribe (no crash on missing handler).
 
 ### `core/game_state.py`
 Central state dataclass. Fields:
 - `player_x`, `player_y`, `current_depth`, `turn` — position and time
-- `player: Character` — the player character with stats, inventory, equipment
+- `player: Character` — the player character with stats, inventory, equipment, light tracking
 - `levels: dict[int, DungeonLevel]` — lazily generated dungeon floors
-- `entities: dict[int, LevelEntities]` — monsters and treasure per level
+- `entities: dict[int, LevelEntities]` — monsters, treasure, NPCs, and traps per level
 - `revealed`, `visible` — FOV/fog-of-war tile sets
 - `visited_rooms` — tracks which rooms have been entered (for AI room descriptions)
 - `combat: CombatState | None` — active combat encounter
+- `rope_connections: dict[int, dict[tuple, tuple]]` — bidirectional trap door rope links
+- `opened_doors` — set of door positions per depth that have been opened
 
 ### `core/dice.py`
 Standard D&D dice: `d4` through `d100`, plus `ability_roll()` (4d6 drop lowest).
 
 ### `core/save_load.py`
-JSON serialization to `saves/` directory. 5 manual slots + autosave (slot 0). Items stored by ID (not value) to keep saves small and auto-apply balance changes. Version field for future migration.
+JSON serialization to `saves/` directory. 5 manual slots + autosave (slot 0). Items stored by ID (not value) to keep saves small and auto-apply balance changes. Version field for migration (currently v3). Validates spell slots (clamped to 0-7), rope connection landings (must be 2-element), trap types (invalid types skipped). Serializes traps, rope connections, light_remaining, monster alert state, and magic item properties.
 
 ### `core/command_parser.py`
-21 commands with aliases and tab completion. Vi-style `:` activates input mode in CommandBar.
+25 commands with aliases and tab completion. Vi-style `:` activates input mode in CommandBar.
+
+### `core/noise.py`
+Noise and stealth system determining how easily monsters detect the player:
+- **Class base noise:** fighter=3, cleric=2, mage=1, thief=0
+- **Race modifier:** human=0, elf=-1, dwarf=+1, halfling=-1
+- **Armor weight:** heavy (AC>=5)=+3, medium (AC>=3)=+2, light (AC>=1)=+1
+- **Light sources:** +3 if carrying active light (torch, lantern, or Light spell)
+- **Closed door attenuation:** each closed door between monster and player reduces effective detection range by 4 tiles (via Bresenham line check)
+- **Detection radius:** `monster_speed // 3 + player_noise`, clamped to [3, 12]
 
 ## Dungeon Generation
 
@@ -108,15 +125,32 @@ Recursive 8-octant shadowcasting algorithm (RogueBasin reference). Uses octant c
 
 Key detail: slopes use `dy = -j` (negative depth convention). The algorithm tracks start/end slopes per scan row, recursing when walls create shadow boundaries.
 
-Returns a `set[tuple[int, int]]` of visible positions. The app merges this into a persistent `revealed` set for fog-of-war. Radius extended by Light spell buff.
+Returns a `set[tuple[int, int]]` of visible positions. The app merges this into a persistent `revealed` set for fog-of-war.
+
+**FOV radius calculation:** base `FOV_RADIUS` (8) + race darkvision bonus + Light spell buff + equipped light source bonus (torch +3, lantern +4). Opened doors are treated as transparent.
+
+### Trap System (`dungeon/traps.py`)
+
+5 trap types with distinct effects:
+- **Pit** — fall damage (1d6 per depth tier)
+- **Spike** — piercing damage (1d8 + depth bonus)
+- **Poison Dart** — damage + poison DOT buff (1d4/turn for 5 turns)
+- **Alarm** — alerts all monsters on level
+- **Trap Door** — fall to next level with damage, or safe descent using rope
+
+**Detection:** d20 + WIS modifier + class bonus (thief +4, cleric +2, mage +1) + race bonus (halfling +2, elf +1) vs trap difficulty (10 + depth, max 20).
+
+**Trap doors:** Create bidirectional rope connections stored in `GameState.rope_connections`. Ropes allow safe ascent/descent between levels at trap door positions. No trap doors placed on max dungeon depth.
 
 ### Dungeon Populator (`dungeon/populator.py`)
 
-After a level is generated, `populate_level()` fills it with monsters, treasure, and NPCs (1-3 per level):
+After a level is generated, `populate_level()` fills it with monsters, treasure, NPCs (1-3 per level), and traps:
 - Each non-stair room has a 50%+ chance of a monster (scales with depth)
-- 30% chance of gold in each room, plus a chance for equipment drops
-- Returns a `LevelEntities` dataclass with `monster_at(x, y)` / `npc_at(x, y)` for collision lookup
+- 30% chance of gold in each room, plus a chance for equipment and magic item drops
+- 20%+2%/depth chance of a trap per room, plus up to 3 corridor traps
+- Returns a `LevelEntities` dataclass with `monster_at(x, y)` / `npc_at(x, y)` / `trap_at(x, y)` for collision lookup
 - Stair rooms are kept empty as safe zones
+- Occupied positions tracked to prevent entity overlap
 
 ## Character System
 
@@ -130,19 +164,28 @@ Core player data and mechanics:
 - **AC calculation** — Descending (classic D&D): 10 - dex_mod - equipment ac_bonus - buffs. Lower = better
 - **Attack bonus** — level * class multiplier + str_mod + sum of equipment attack_mod + buffs. THAC0-style: d20 + attack_bonus >= 20 - target_AC
 - **8 equipment slots** — weapon, armor (body), shield, helmet (head), boots, gloves, ring, amulet. Class restrictions enforced on equip. Slot-to-field mapping in `_SLOT_MAP`
-- **Leveling** — 10-level XP table. Level-up adds hit die + CON mod to max HP
+- **Light sources** — Torch/lantern equip in shield slot. `light_remaining` tracks burn turns. `light_bonus()` returns FOV extension. `has_active_light()` checks equipped light or Light spell buff. Lit torches are consumed (not returned to inventory) when replaced or unequipped. Two-handed weapons force shield unequip, extinguishing light
+- **Leveling** — 25-level XP table. Level-up adds hit die + CON mod to max HP
 - **Spell slots** — 3-level slot progression for Mage and Cleric classes
+- **Buff system** — `tick_buffs()` handles regen, poison DOT, light burndown, and spell duration tracking
 
 `create_character(name, class, race)` rolls a complete character with starting gold (3d6 * 10). The `CharacterCreationScreen` modal also assigns starting equipment per class.
 
 ### Items and Equipment (`entities/item.py`)
 
-- **`Item` dataclass** — id, name, category, price/currency, damage dice (weapons), AC bonus (armor/accessories), attack_mod (accessories), slot, class restrictions, consumable/heal_dice fields, regen_dice/regen_turns for food heal-over-time
-- **`EquipmentDB` singleton** — loads `data/equipment.json` (76 items: weapons, armor, accessories, clothing, provisions, misc, 5 consumable healing items). Provisions (rations, ale) are consumable food with regen buffs. Categories include helmets, boots, gloves, rings, and amulets
+- **`Item` dataclass** — id, name, category, price/currency, damage dice (weapons), AC bonus (armor/accessories), attack_mod (accessories), slot, class restrictions, consumable/heal_dice fields, regen_dice/regen_turns for food heal-over-time, light_radius/light_duration for light sources, rarity/lore for magic items
+- **`EquipmentDB` singleton** — loads `data/equipment.json` (84 items: weapons, armor, accessories, clothing, provisions, consumables, misc). Provisions (rations, ale) are consumable food with regen buffs. Misc includes rope, lanterns, torches, thieves' tools, holy water
 - **`parse_dice()` / `roll_dice()`** — parses "2d6+1" format strings and rolls them
 - **`random_treasure(tier)`** — generates loot appropriate to dungeon depth
-- **`for_merchant_tier()`** — filters items appropriate for NPC shops
+- **`for_merchant_tier()`** — filters items for NPC shops. Provisions tier includes misc items (rope, supplies)
 - Gold values normalized across currencies (G=gold, S=silver/10, C=copper/100)
+
+### Magic Items (`entities/magic_items.py`)
+
+- **`UniqueItemDB`** — persistent database of unique items, saved to `saves/unique_items.json`
+- **`generate_startup_uniques(count)`** — creates unique items on game start using AI (with fallback name generation). 20 skeleton templates across weapons, armor, and accessories. Guarantees name uniqueness
+- **`roll_magic_loot(depth, tier)`** — chance to drop a magic item from the unique pool, scaling with depth
+- Unique items have `rarity="unique"`, custom names, and one-sentence lore descriptions
 
 ## Combat System
 
@@ -195,7 +238,7 @@ flowchart TD
     Cast --> CheckMon
 ```
 
-**Resurrection:** On death, if the player has gold, resurrection costs `min(100*level, gold//10)`. Equipment is dropped at the death position as a treasure pile. Player respawns at stairs_up with half HP. 0 gold = permanent death.
+**Resurrection:** On death, if the player has gold, resurrection costs `min(100*level, gold//10)`. Equipment is dropped at the death position as a treasure pile. Player respawns at stairs_up with half HP (minimum 1). 0 gold = permanent death. Non-combat death (traps, poison DOT) handled by `_handle_player_death()`.
 
 **`CombatState`** tracks the full fight: player, monster, round counter, result enum, and a combat log of styled text entries.
 
@@ -204,8 +247,8 @@ flowchart TD
 ### Monsters (`entities/monster.py`)
 
 - **`MonsterTemplate`** — static stats from `data/monsters.json`
-- **`Monster`** — live instance with HP, position, damage. Created via `MonsterDB.spawn()`
-- **22 types** scaling across levels 1-14:
+- **`Monster`** — live instance with HP, position, speed, `is_alert` state. Created via `MonsterDB.spawn()`
+- **30 types** scaling across levels 1-14:
 
 | Monster | Levels | HP | AC | Damage | Special | XP |
 |---------|--------|-----|-----|--------|---------|-----|
@@ -232,13 +275,22 @@ flowchart TD
 | Spectre | 11-14 | 7d8 | 2 | 2d6 | drain | 450 |
 | Young Black Dragon | 12-14 | 10d8 | 1 | 3d6 | poison | 750 |
 
-Each monster has a unique single-character symbol and color for the map display.
+Each monster has a unique single-character symbol, color, and speed for the map display. Speed affects detection radius and pathfinding range.
+
+### Monster AI
+
+Monsters detect and pursue the player based on noise:
+
+1. **Detection:** Manhattan distance <= effective detection range (base range attenuated by closed doors)
+2. **Alert state:** Detected monsters become alert (turn red on map). Alert monsters de-alert when player moves far enough away
+3. **Movement:** Alert monsters pathfind toward player via BFS through walkable tiles and opened doors only. Closed doors block monster movement
+4. **Combat initiation:** When a monster moves adjacent to the player, combat begins automatically
 
 ### Spells (`combat/spells.py`)
 
 - **`SpellDB` singleton** — loads `data/spells.json` (12 spells: 6 mage, 6 cleric)
 - **`SpellSlots`** — 3-level slot progression, restored on stair rest
-- **`ActiveBuff`** — time-limited combat/utility buffs (e.g., Light extends FOV radius). Also used for food regen: `effect="regen"` with `regen_dice` rolled each turn via `tick_buffs()`
+- **`ActiveBuff`** — time-limited combat/utility buffs (e.g., Light extends FOV radius). Also used for food regen: `effect="regen"` with `regen_dice` rolled each turn via `tick_buffs()`. Poison DOT uses `effect="poison_dot"`
 - `player_cast()` handles spell combat integration
 
 ## NPCs and Quests
@@ -248,10 +300,17 @@ Each monster has a unique single-character symbol and color for the map display.
 - **`NPCDB` singleton** — loads `data/npcs.json` (11 templates: 4 merchants, 2 quest givers, 2 sages, 3 wanderers)
 - **`NPC`** — tracks position, `talked_to`, `quest_id`
 - AI DM generates dialogue; fallback templates for offline play
+- NPCs placed in non-stair, non-monster rooms, away from doors
 
 ### Merchants
 
-OptionList-based merchant screen for buying/selling. Items filtered by `for_merchant_tier()` based on dungeon depth.
+OptionList-based merchant screen for buying/selling. Items filtered by `for_merchant_tier()` based on merchant type:
+- **Weapons merchant** — all weapons
+- **Provisions merchant** — provisions, clothing, consumables, and misc items (rope, lanterns, torches, supplies)
+- **Armor merchant** — armor and accessories
+- **Magic merchant** — accessories, scrolls, and expensive misc items
+
+Purchased items use canonical `equipment_db` references to preserve all item properties.
 
 ### Quests (`quest/quest.py`)
 
@@ -302,6 +361,7 @@ flowchart LR
 - `describe_level_theme()` — when descending to a new level
 - `describe_treasure()` — when picking up loot
 - NPC dialogue — AI-generated conversation with personality
+- Quest narration — AI-generated quest offers and completions
 
 All methods share the same system prompt establishing tone (dark fantasy, second person, 1-3 sentences, no emojis).
 
@@ -317,7 +377,7 @@ Event-driven singleton connected via the event bus. Fallback chain: playsound3 �
 - **bell** — terminal bell (`\a`), last-resort audible fallback
 - **silent** — no audio output
 
-**`audio/tone_generator.py`** — creates 19 retro WAV files using stdlib only. Config in `data/sounds.json` (21 event-to-sound mappings). Optional `[audio]` pip extra for playsound3.
+**`audio/tone_generator.py`** — creates 19 retro WAV files using stdlib only. Config in `data/sounds.json` (23 event-to-sound mappings including trap_detected and trap_triggered). Optional `[audio]` pip extra for playsound3.
 
 ## UI Architecture
 
@@ -329,7 +389,7 @@ Built on [Textual](https://textual.textualize.io/), a Python TUI framework built
 block-beta
     columns 5
 
-    Map["MapPanel / FirstPersonPanel<br/>(Tab toggles)<br/>1fr width"]:3
+    Map["MapPanel (+ FPV overlay top-right)<br/>1fr width"]:3
     Stats["StatsPanel<br/>26 cols<br/>Name, HP bar, stats,<br/>AC, equipment, gold,<br/>minimap, spell slots"]:2
 
     Log["LogPanel (10 rows)<br/>AI descriptions, combat narration, item pickups"]:5
@@ -350,12 +410,12 @@ sequenceDiagram
 
     P->>A: Key press (WASD, F, G, etc.)
     A->>G: Update state (position, combat, etc.)
-    A->>F: compute_fov()
+    A->>F: compute_fov() with darkvision + light bonus
     F-->>G: visible set → merged into revealed
     A->>DM: Room entry / combat / kill check
     DM-->>A: Narration text
     A->>W: Increment reactive turn counter
-    W->>W: render() — MapPanel, StatsPanel, LogPanel
+    W->>W: render() — MapPanel (with light tint), StatsPanel, LogPanel
 ```
 
 ### Widget Communication
@@ -367,10 +427,19 @@ Widgets hold a reference to `GameState` (set via `set_game_state()`). The app ca
 - **`CharacterCreationScreen`** — Name, class, race selection. Starting equipment per class. Load Game button for returning players
 - **`SpellSelectionScreen`** — Choose spell to cast from available slots
 - **`SaveLoadScreen`** — 5 manual slots + autosave
-- **`MerchantScreen`** — OptionList-based buy/sell interface
-- **`InventoryScreen`** — OptionList-based equip/unequip/use
-- **`UseItemScreen`** — Consumable item selection
+- **`MerchantScreen`** — OptionList-based buy/sell interface with mode toggle
+- **`InventoryScreen`** — OptionList-based equip/unequip/use with item stacking (identical items grouped by ID with quantity)
+- **`UseItemScreen`** — OptionList-based consumable item selection with item stacking
 - **`QuitScreen`** — Quit confirmation with Save & Quit, Quit Without Saving, and Cancel options
+
+### Map Rendering
+
+The `MapPanel` renders the dungeon with:
+- **Fog of war:** visible tiles in full color, revealed tiles dimmed, unexplored tiles hidden
+- **Light tinting:** when player has active light source, visible room/corridor tiles tint warm yellow/goldenrod
+- **Entity overlays:** monsters (colored symbols, red when alert), NPCs, detected traps (^), rope connections (~), treasure ($)
+- **FPV overlay:** first-person ASCII view composited into the top-right corner of the panel (toggled with V)
+- **Viewport scrolling:** camera centered on player, clamped to map bounds
 
 ### Key Bindings
 
@@ -386,8 +455,8 @@ Widgets hold a reference to `GameState` (set via `set_game_state()`). The app ca
 | T | Talk to NPC | Adjacent to NPC |
 | J | Quest log | Any time |
 | V | Toggle map/first-person | Any time |
-| < (comma) | Ascend stairs (heals) | On up stairs |
-| > (period) | Descend stairs (heals) | On down stairs |
+| < (comma) | Ascend stairs (heals) | On up stairs or rope |
+| > (period) | Descend stairs (heals) | On down stairs or trap door with rope |
 | Ctrl+S | Save game | Any time |
 | Ctrl+L | Load game | Any time |
 | : | Command input mode | Any time |
@@ -400,20 +469,31 @@ Widgets hold a reference to `GameState` (set via `set_game_state()`). The app ca
 ```mermaid
 flowchart TD
     K[Key Press] --> Move[action_move direction]
-    Move --> ChkMon{Monster at<br/>destination?}
+    Move --> ChkNPC{NPC at<br/>destination?}
+    ChkNPC -->|Yes| Talk[Interact with NPC]
+    ChkNPC -->|No| ChkMon{Monster at<br/>destination?}
     ChkMon -->|Yes| Combat[Start combat]
-    ChkMon -->|No| DoMove[Move player, increment turn]
-    DoMove --> FOV[compute_fov → visible → revealed]
-    FOV --> ChkGround{Items on<br/>ground?}
+    ChkMon -->|No| ChkWalk{Walkable?}
+    ChkWalk -->|No| ChkDoor{Locked door?}
+    ChkDoor -->|Yes| TryOpen[Try open/pick/bash]
+    ChkDoor -->|No| Blocked[Can't go that way]
+    ChkWalk -->|Yes| DoMove[Move player, increment turn]
+    DoMove --> ChkTrap{Trap at<br/>position?}
+    ChkTrap -->|Yes| Detect{Detection<br/>check?}
+    Detect -->|Pass| TrapDetected[Trap revealed on map]
+    Detect -->|Fail| TrapTrigger[Trap activates]
+    ChkTrap -->|No| FOV
+    TrapDetected --> FOV
+    TrapTrigger --> FOV
+    FOV[compute_fov → visible → revealed]
+    FOV --> MonAI[Monster detection + movement]
+    MonAI --> ChkGround{Items on<br/>ground?}
     ChkGround -->|Yes| Notify[Notify player]
     ChkGround -->|No| ChkRoom
     Notify --> ChkRoom{New room?}
     ChkRoom -->|Yes| AI[AI describe_room]
-    ChkRoom -->|No| ChkEnc
-    AI --> ChkEnc{Corridor?<br/>3% chance}
-    ChkEnc -->|Yes| RandEnc[Random encounter]
-    ChkEnc -->|No| Pub
-    RandEnc --> Pub[EventBus.publish player_moved]
+    ChkRoom -->|No| Pub
+    AI --> Pub[EventBus.publish player_moved]
     Pub --> Refresh[All widgets refresh]
 ```
 

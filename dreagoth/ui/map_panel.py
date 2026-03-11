@@ -81,21 +81,37 @@ class MapPanel(Widget):
         npc_positions: dict[tuple[int, int], tuple[str, str]] = {}
         gold_positions: set[tuple[int, int]] = set()
         treasure_positions: set[tuple[int, int]] = set()
+        trap_positions: dict[tuple[int, int], tuple[str, str]] = {}
+        rope_positions: set[tuple[int, int]] = set()
 
         if gs.current_depth in gs.entities:
             ents = gs.current_entities
             for m in ents.monsters:
                 if not m.is_dead:
-                    monster_positions[(m.x, m.y)] = (m.symbol, m.color)
+                    color = "bold bright_red" if m.is_alert else m.color
+                    monster_positions[(m.x, m.y)] = (m.symbol, color)
             for n in ents.npcs:
                 npc_positions[(n.x, n.y)] = (n.symbol, n.color)
             for pos in ents.gold_piles:
                 gold_positions.add(pos)
             for pos in ents.treasure_piles:
                 treasure_positions.add(pos)
+            for t in ents.traps:
+                if t.detected and not t.triggered:
+                    trap_positions[(t.x, t.y)] = ("^", "bold bright_magenta")
 
-        # Build 2D buffer for the viewport region only
-        buf = [[None] * vw for _ in range(vh)]
+        # Rope connections on this level
+        ropes = gs.rope_connections.get(gs.current_depth, {})
+        for pos in ropes:
+            rope_positions.add(pos)
+
+        # Check if player has an active light source for warm tint
+        has_light = gs.player and gs.player.has_active_light()
+
+        # Use the actual widget content width for the buffer so every
+        # character maps 1-to-1 to a Textual cell.
+        content_w = self.size.width or vw
+        buf = [[(" ", "")] * content_w for _ in range(vh)]
         for row in range(vh):
             y = vy + row
             for col in range(vw):
@@ -111,29 +127,37 @@ class MapPanel(Widget):
                     elif pos in npc_positions:
                         sym, color = npc_positions[pos]
                         buf[row][col] = (sym, f"bold {color}")
+                    elif pos in trap_positions:
+                        sym, color = trap_positions[pos]
+                        buf[row][col] = (sym, color)
+                    elif pos in rope_positions:
+                        buf[row][col] = ("~", "bold bright_cyan")
                     elif pos in treasure_positions or pos in gold_positions:
                         buf[row][col] = ("$", "bold bright_yellow")
                     else:
-                        buf[row][col] = self._tile_render(level[x, y])
+                        ch, style = self._tile_render(level[x, y])
+                        if has_light and style and "grey" in style:
+                            style = style.replace("grey70", "yellow").replace("grey50", "dark_goldenrod")
+                        buf[row][col] = (ch, style)
                 elif pos in revealed:
                     char, style = self._tile_render(level[x, y])
                     buf[row][col] = (char, f"dim {style}")
                 else:
                     buf[row][col] = (" ", "")
 
-        # Overlay FPV in the top-right corner of the viewport
+        # Overlay FPV in the top-right corner of the widget
         if self._show_fpv:
             fpv = render_fpv(gs)
             if fpv:
-                bw = FPV_W + 2
+                bw = FPV_W + 2   # border adds 2
                 bh = FPV_H + 2
-                ox = vw - bw  # top-right of viewport
+                ox = content_w - bw  # right-align to widget edge
                 oy = 0
                 for r in range(bh):
                     for c in range(bw):
                         bx = ox + c
                         by = oy + r
-                        if 0 <= bx < vw and 0 <= by < vh:
+                        if 0 <= bx < content_w and 0 <= by < vh:
                             if r == 0 and c == 0:
                                 buf[by][bx] = ("\u250c", "grey50")
                             elif r == 0 and c == bw - 1:
@@ -152,7 +176,7 @@ class MapPanel(Widget):
         # Convert buffer to Rich Text
         text = Text()
         for row in range(vh):
-            for col in range(vw):
+            for col in range(content_w):
                 ch, style = buf[row][col]
                 text.append(ch, style=style)
             if row < vh - 1:

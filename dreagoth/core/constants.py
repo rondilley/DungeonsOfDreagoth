@@ -16,7 +16,15 @@ MAX_ROOM_ATTEMPTS = 500  # Retries per room before giving up
 # Player
 FOV_RADIUS = 8
 STARTING_LEVEL = 1
-MAX_DUNGEON_DEPTH = 10
+MAX_DUNGEON_DEPTH = 25
+
+# Race darkvision bonus (added to FOV_RADIUS)
+RACE_DARKVISION: dict[str, int] = {
+    "human": 0,
+    "elf": 2,      # Keen elven sight
+    "dwarf": 3,    # Dwarves are at home in the dark
+    "halfling": 1,  # Slightly better than human
+}
 
 # Directions (dx, dy)
 NORTH = (0, -1)

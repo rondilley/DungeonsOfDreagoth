@@ -450,10 +450,17 @@ def generate_startup_uniques(count: int = 10) -> list[Item]:
 
         if not name:
             # Keep generating fallback names until we get one that's not taken
-            for _ in range(20):
+            for _ in range(50):
                 name, lore = _fallback_name_lore(skeleton)
                 if name not in existing_names:
                     break
+            else:
+                # Exhausted retries — force uniqueness with a numeric suffix
+                base_name = name
+                suffix = 2
+                while name in existing_names:
+                    name = f"{base_name} {suffix}"
+                    suffix += 1
 
         existing_names.add(name)
         item = _skeleton_to_item(skeleton, name, lore)

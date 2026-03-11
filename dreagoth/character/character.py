@@ -10,7 +10,33 @@ from dreagoth.combat.spells import SpellSlots, ActiveBuff
 
 
 # XP thresholds for each level (index = level-1)
-XP_TABLE = [0, 200, 600, 1200, 2400, 5000, 10000, 20000, 40000, 80000]
+XP_TABLE = [
+    0,           # level  1
+    200,         # level  2
+    600,         # level  3
+    1_200,       # level  4
+    2_400,       # level  5
+    5_000,       # level  6
+    10_000,      # level  7
+    20_000,      # level  8
+    40_000,      # level  9
+    80_000,      # level 10
+    150_000,     # level 11
+    280_000,     # level 12
+    500_000,     # level 13
+    800_000,     # level 14
+    1_200_000,   # level 15
+    1_800_000,   # level 16
+    2_500_000,   # level 17
+    3_500_000,   # level 18
+    5_000_000,   # level 19
+    7_000_000,   # level 20
+    9_500_000,   # level 21
+    12_500_000,  # level 22
+    16_000_000,  # level 23
+    20_000_000,  # level 24
+    25_000_000,  # level 25
+]
 
 CLASS_DATA = {
     "fighter": {
@@ -84,6 +110,9 @@ class Character:
     # Spells
     spell_slots: SpellSlots = field(default_factory=SpellSlots)
     active_buffs: list[ActiveBuff] = field(default_factory=list)
+
+    # Light source tracking (turns remaining on equipped light, 0 = not burning)
+    light_remaining: int = 0
 
     # Combat state
     is_dead: bool = False
@@ -196,6 +225,18 @@ class Character:
     def fov_bonus(self) -> int:
         return sum(b.value for b in self.active_buffs if b.effect == "fov_extend")
 
+    def light_bonus(self) -> int:
+        """FOV bonus from equipped light source (torch/lantern in shield slot)."""
+        if self.shield and self.shield.is_light_source and self.light_remaining > 0:
+            return self.shield.light_radius
+        return 0
+
+    def has_active_light(self) -> bool:
+        """True if carrying an active light source (torch, lantern, or Light spell)."""
+        if self.shield and self.shield.is_light_source and self.light_remaining > 0:
+            return True
+        return any(b.effect == "fov_extend" for b in self.active_buffs)
+
     def tick_buffs(self) -> list[str]:
         """Decrement turn-based buffs, process regen, remove expired ones.
 
@@ -210,6 +251,13 @@ class Character:
                     messages.append(
                         f"Regen: +{healed} HP ({self.hp}/{self.max_hp})"
                     )
+            elif buff.effect == "poison_dot" and buff.regen_dice:
+                dmg = max(1, roll_dice(buff.regen_dice))
+                actual = self.take_damage(dmg)
+                if actual > 0:
+                    messages.append(
+                        f"Poison: -{actual} HP ({self.hp}/{self.max_hp})"
+                    )
             if buff.remaining_turns is not None:
                 buff.remaining_turns -= 1
                 if buff.remaining_turns > 0:
@@ -217,6 +265,18 @@ class Character:
             else:
                 remaining.append(buff)
         self.active_buffs = remaining
+
+        # Tick equipped light source
+        if self.shield and self.shield.is_light_source and self.light_remaining > 0:
+            self.light_remaining -= 1
+            if self.light_remaining <= 0:
+                self.light_remaining = 0
+                name = self.shield.name
+                self.shield = None
+                messages.append(f"Your {name} has burned out!")
+            elif self.light_remaining == 20:
+                messages.append("Your light flickers — it won't last much longer!")
+
         return messages
 
     def clear_combat_buffs(self) -> None:
@@ -250,8 +310,12 @@ class Character:
             msg = f"You wield the {item.name}."
             # Two-handed weapons force shield unequip
             if item.two_handed and self.shield:
-                self.inventory.append(self.shield)
-                msg += f" You put away the {self.shield.name}."
+                if self.shield.is_light_source and self.light_remaining > 0:
+                    self.light_remaining = 0
+                    msg += f" Your {self.shield.name} goes out."
+                else:
+                    self.inventory.append(self.shield)
+                    msg += f" You put away the {self.shield.name}."
                 self.shield = None
             return msg
         if item.slot in self._SLOT_MAP:
@@ -263,10 +327,20 @@ class Character:
             field_name, msg_template = self._SLOT_MAP[item.slot]
             current = getattr(self, field_name)
             if current:
-                self.inventory.append(current)
+                if field_name == "shield" and current.is_light_source and self.light_remaining > 0:
+                    # A lit light source is consumed when put away
+                    self.light_remaining = 0
+                else:
+                    self.inventory.append(current)
             self.inventory.remove(item)
             setattr(self, field_name, item)
-            return msg_template.format(name=item.name)
+            # Initialize light source burn timer
+            if field_name == "shield" and item.is_light_source:
+                self.light_remaining = item.light_duration
+            msg = msg_template.format(name=item.name)
+            if item.is_light_source:
+                msg = f"You light the {item.name}. It illuminates the darkness!"
+            return msg
         return f"You can't equip {item.name}."
 
     def use_item(self, item: Item) -> tuple[str, int] | None:

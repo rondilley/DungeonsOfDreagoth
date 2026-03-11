@@ -191,6 +191,959 @@
       ],
       "ac_bonus": 2,
       "slot": "body"
+    },
+    {
+      "id": "unique_voidweaver_s_conduit",
+      "name": "Voidweaver's Conduit",
+      "category": "weapons",
+      "price": 300,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This twisted staff channels the screams of mages who fell to Dreagoth's corruption.",
+      "damage": "1d4+3",
+      "weapon_type": "melee",
+      "classes": [
+        "mage"
+      ],
+      "attack_mod": 2
+    },
+    {
+      "id": "unique_circlet_of_the_fallen_king",
+      "name": "Circlet of the Fallen King",
+      "category": "armor",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Worn by Dreagoth's last monarch as his realm crumbled into cursed stone.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "head"
+    },
+    {
+      "id": "unique_whisperwind_s_requiem",
+      "name": "Whisperwind's Requiem",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from heartwood of the Weeping Tree, it sings laments for each soul it claims.",
+      "damage": "1d8+2",
+      "weapon_type": "ranged",
+      "range": 70,
+      "classes": [
+        "fighter",
+        "thief"
+      ],
+      "two_handed": true
+    },
+    {
+      "id": "unique_soulrend",
+      "name": "Soulrend",
+      "category": "weapons",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the dying breath of betrayed assassins, it hungers for treacherous blood.",
+      "damage": "1d6+4",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter",
+        "thief"
+      ]
+    },
+    {
+      "id": "unique_heartstone_of_vaelthys",
+      "name": "Heartstone of Vaelthys",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from the crystallized heart of a betrayed goddess, it pulses with divine fury.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_bulwark_of_the_ironbound",
+      "name": "Bulwark of the Ironbound",
+      "category": "armor",
+      "price": 600,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the souls of a thousand fallen knights who swore eternal service to Dreagoth.",
+      "classes": [
+        "fighter"
+      ],
+      "ac_bonus": 7,
+      "slot": "body"
+    },
+    {
+      "id": "unique_aegis_of_mourning_stars",
+      "name": "Aegis of Mourning Stars",
+      "category": "armor",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from meteoric iron that fell when the gods wept for Dreagoth's first martyrs.",
+      "classes": [
+        "fighter",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "shield"
+    },
+    {
+      "id": "unique_veilkeeper_s_binding",
+      "name": "Veilkeeper's Binding",
+      "category": "accessories",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged by the last priestess of Dreagoth to shield her disciples from the whispers of madness.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "ring"
+    },
+    {
+      "id": "unique_dreagoth_s_withering_rod",
+      "name": "Dreagoth's Withering Rod",
+      "category": "weapons",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from the spine of the dungeon's first victim, it hungers for mortal essence.",
+      "damage": "1d8+3",
+      "weapon_type": "melee",
+      "classes": [
+        "mage"
+      ],
+      "attack_mod": 3,
+      "two_handed": true
+    },
+    {
+      "id": "unique_oathbreaker_s_lament",
+      "name": "Oathbreaker's Lament",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the shattered crown of a paladin who betrayed his god in Dreagoth's depths.",
+      "damage": "1d8+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter"
+      ]
+    },
+    {
+      "id": "unique_grimfang_cleaver",
+      "name": "Grimfang Cleaver",
+      "category": "weapons",
+      "price": 600,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the jawbone of Dreagoth's first guardian, it hungers for the blood of the living.",
+      "damage": "2d6+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter"
+      ],
+      "two_handed": true
+    },
+    {
+      "id": "unique_soulrend_triumph",
+      "name": "Soulrend Triumph",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the tears of a dying god, it devours the essence of those it slays.",
+      "damage": "1d8+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter"
+      ]
+    },
+    {
+      "id": "unique_dominion_s_last_grasp",
+      "name": "Dominion's Last Grasp",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the melted crown of Dreagoth's final king as his empire crumbled.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 1,
+      "slot": "ring"
+    },
+    {
+      "id": "unique_penitent_s_wrath",
+      "name": "Penitent's Wrath",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the chains that bound the first heretic, it burns with righteous fury.",
+      "damage": "1d6+3",
+      "weapon_type": "melee",
+      "classes": [
+        "cleric"
+      ]
+    },
+    {
+      "id": "unique_whisperwind_s_betrayal",
+      "name": "Whisperwind's Betrayal",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from blackened yew where the elven prince fell to his own arrow's curse.",
+      "damage": "1d8+2",
+      "weapon_type": "ranged",
+      "range": 70,
+      "classes": [
+        "fighter",
+        "thief"
+      ],
+      "two_handed": true
+    },
+    {
+      "id": "unique_tyrant_s_iron_visage",
+      "name": "Tyrant's Iron Visage",
+      "category": "armor",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the crown of a fallen warlord, it whispers commands of conquest.",
+      "classes": [
+        "fighter"
+      ],
+      "ac_bonus": 3,
+      "slot": "head"
+    },
+    {
+      "id": "unique_dreagoth_s_whispered_promise",
+      "name": "Dreagoth's Whispered Promise",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This cursed amulet binds the wearer's soul to the dungeon's ancient master.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_nightfall_s_hunger",
+      "name": "Nightfall's Hunger",
+      "category": "weapons",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the dying breath of assassins who failed to escape Dreagoth's depths.",
+      "damage": "1d6+4",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter",
+        "thief"
+      ]
+    },
+    {
+      "id": "unique_dawnbreaker_s_retribution",
+      "name": "Dawnbreaker's Retribution",
+      "category": "weapons",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged by the last paladin before Dreagoth's fall, its light burns undead flesh.",
+      "damage": "2d4+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter",
+        "cleric"
+      ]
+    },
+    {
+      "id": "unique_ember_of_the_fallen",
+      "name": "Ember of the Fallen",
+      "category": "accessories",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This crimson pendant pulses with the dying breath of Dreagoth's first champion.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 1,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_mourning_star_pendant",
+      "name": "Mourning Star Pendant",
+      "category": "accessories",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the tears of the first dungeon keeper, it pulses with ancient sorrow.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 1,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_fists_of_the_fallen_champion",
+      "name": "Fists of the Fallen Champion",
+      "category": "armor",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the bones of Dreagoth's greatest warrior, they crush both steel and spirit.",
+      "classes": [
+        "fighter",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 2,
+      "slot": "gloves"
+    },
+    {
+      "id": "unique_umbral_fang",
+      "name": "Umbral Fang",
+      "category": "weapons",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the shadow of Dreagoth's first victim, it hungers for the light of souls.",
+      "damage": "1d6+4",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter",
+        "thief"
+      ]
+    },
+    {
+      "id": "unique_lightbringer_s_retribution",
+      "name": "Lightbringer's Retribution",
+      "category": "weapons",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged by Saint Valoris before his final stand against the demon lords of Dreagoth.",
+      "damage": "2d4+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter",
+        "cleric"
+      ]
+    },
+    {
+      "id": "unique_sanctum_s_broken_oath",
+      "name": "Sanctum's Broken Oath",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Once wielded by High Cleric Thaddeus before his faith shattered in Dreagoth's depths.",
+      "damage": "1d6+3",
+      "weapon_type": "melee",
+      "classes": [
+        "cleric"
+      ]
+    },
+    {
+      "id": "unique_chains_of_the_penitent",
+      "name": "Chains of the Penitent",
+      "category": "armor",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the shackles of heretics who sought redemption in Dreagoth's depths.",
+      "classes": [
+        "fighter",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 4,
+      "slot": "body"
+    },
+    {
+      "id": "unique_thornspire_s_vengeance",
+      "name": "Thornspire's Vengeance",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from the last treant's heartwood before Dreagoth's curse consumed the surface.",
+      "damage": "1d8+2",
+      "weapon_type": "ranged",
+      "range": 70,
+      "classes": [
+        "fighter",
+        "thief"
+      ],
+      "two_handed": true
+    },
+    {
+      "id": "unique_robes_of_the_mad_hierophant",
+      "name": "Robes of the Mad Hierophant",
+      "category": "armor",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Woven from shadowsilk by Dreagoth's first high priest before madness consumed him.",
+      "classes": [
+        "mage"
+      ],
+      "ac_bonus": 3,
+      "slot": "body"
+    },
+    {
+      "id": "unique_bloodmoon_covenant",
+      "name": "Bloodmoon Covenant",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the crystallized tears of a betrayed archlich, it pulses with malevolent power.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_voidcaller_s_conduit",
+      "name": "Voidcaller's Conduit",
+      "category": "weapons",
+      "price": 300,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "A crystalline staff that once channeled the dying screams of a thousand souls into raw magic.",
+      "damage": "1d4+3",
+      "weapon_type": "melee",
+      "classes": [
+        "mage"
+      ],
+      "attack_mod": 2
+    },
+    {
+      "id": "unique_shadowbane_requiem",
+      "name": "Shadowbane Requiem",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the tears of paladins who fell defending the first seal against darkness.",
+      "damage": "1d8+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter"
+      ]
+    },
+    {
+      "id": "unique_robes_of_the_starless_covenant",
+      "name": "Robes of the Starless Covenant",
+      "category": "armor",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Woven from the shadows of apostate mages who bound their souls to forgotten gods.",
+      "classes": [
+        "mage"
+      ],
+      "ac_bonus": 3,
+      "slot": "body"
+    },
+    {
+      "id": "unique_pendant_of_endless_sorrow",
+      "name": "Pendant of Endless Sorrow",
+      "category": "accessories",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from the tears of a goddess who wept for ten thousand years over her lost realm.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 1,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_gorecleaver_s_lament",
+      "name": "Gorecleaver's Lament",
+      "category": "weapons",
+      "price": 600,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the spine of a titan who wept tears of molten iron as he died.",
+      "damage": "2d6+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter"
+      ],
+      "two_handed": true
+    },
+    {
+      "id": "unique_bloodpact_signet",
+      "name": "Bloodpact Signet",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the crystallized tears of a betrayed archlich's final servant.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 1,
+      "slot": "ring"
+    },
+    {
+      "id": "unique_nightfall_s_lament",
+      "name": "Nightfall's Lament",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from blackwood of the hanged god's tree, it weeps spectral arrows that pierce both flesh and soul.",
+      "damage": "1d8+2",
+      "weapon_type": "ranged",
+      "range": 70,
+      "classes": [
+        "fighter",
+        "thief"
+      ],
+      "two_handed": true
+    },
+    {
+      "id": "unique_crown_of_forgotten_oaths",
+      "name": "Crown of Forgotten Oaths",
+      "category": "armor",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Worn by the last high priest who broke his sacred vows to save his dying god.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "head"
+    },
+    {
+      "id": "unique_gauntlets_of_shattered_oaths",
+      "name": "Gauntlets of Shattered Oaths",
+      "category": "armor",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the broken vows of paladins who fell to corruption in Dreagoth's depths.",
+      "classes": [
+        "fighter",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 2,
+      "slot": "gloves"
+    },
+    {
+      "id": "unique_ghostwalker_treads",
+      "name": "Ghostwalker Treads",
+      "category": "armor",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Boots worn by the lost patrol that still wander the cursed halls in eternal search.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "boots"
+    },
+    {
+      "id": "unique_nexus_of_shattered_oaths",
+      "name": "Nexus of Shattered Oaths",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the broken vows of thirteen paladins who fell to corruption in Dreagoth's depths.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_voidscribe_s_quill",
+      "name": "Voidscribe's Quill",
+      "category": "weapons",
+      "price": 300,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This ethereal staff channels the forbidden words that drove the court scribes mad.",
+      "damage": "1d4+3",
+      "weapon_type": "melee",
+      "classes": [
+        "mage"
+      ],
+      "attack_mod": 2
+    },
+    {
+      "id": "unique_hallowed_bone_of_saint_malachar",
+      "name": "Hallowed Bone of Saint Malachar",
+      "category": "weapons",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the blessed femur of a martyred saint who fell defending the first seal.",
+      "damage": "2d4+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter",
+        "cleric"
+      ]
+    },
+    {
+      "id": "unique_heartstone_of_the_void_priests",
+      "name": "Heartstone of the Void Priests",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from the crystallized tears of a dying god, it pulses with forbidden power.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_bulwark_of_the_sundered_throne",
+      "name": "Bulwark of the Sundered Throne",
+      "category": "armor",
+      "price": 600,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the melted crown of Dreagoth's last king, it bears his dying curse.",
+      "classes": [
+        "fighter"
+      ],
+      "ac_bonus": 7,
+      "slot": "body"
+    },
+    {
+      "id": "unique_crown_of_shattered_oaths",
+      "name": "Crown of Shattered Oaths",
+      "category": "armor",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the broken vows of thirteen fallen kings who betrayed their realms.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "head"
+    },
+    {
+      "id": "unique_voidcaller_s_ascension",
+      "name": "Voidcaller's Ascension",
+      "category": "weapons",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Once wielded by Archmagus Kelthara before the abyss claimed her soul and sanity.",
+      "damage": "1d8+3",
+      "weapon_type": "melee",
+      "classes": [
+        "mage"
+      ],
+      "attack_mod": 3,
+      "two_handed": true
+    },
+    {
+      "id": "unique_warden_s_bloodied_hauberk",
+      "name": "Warden's Bloodied Hauberk",
+      "category": "armor",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the chains that bound the first dungeon keeper, it pulses with his dying oath.",
+      "classes": [
+        "fighter",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 4,
+      "slot": "body"
+    },
+    {
+      "id": "unique_pendant_of_shattered_oaths",
+      "name": "Pendant of Shattered Oaths",
+      "category": "accessories",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Worn by the oath-breaking paladin who opened Dreagoth's sealed gates to darkness.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 1,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_martyrdom_s_heavy_crown",
+      "name": "Martyrdom's Heavy Crown",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This blessed flail crushed the skulls of heretics until its wielder fell to corruption.",
+      "damage": "1d6+3",
+      "weapon_type": "melee",
+      "classes": [
+        "cleric"
+      ]
+    },
+    {
+      "id": "unique_circlet_of_warding_shadows",
+      "name": "Circlet of Warding Shadows",
+      "category": "accessories",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged by the last archmage before Dreagoth's corruption consumed his tower.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "ring"
+    },
+    {
+      "id": "unique_scepter_of_withering_truths",
+      "name": "Scepter of Withering Truths",
+      "category": "weapons",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Once wielded by Archmagus Veleth, its crystal head shows visions that drove him to madness.",
+      "damage": "1d8+3",
+      "weapon_type": "melee",
+      "classes": [
+        "mage"
+      ],
+      "attack_mod": 3,
+      "two_handed": true
+    },
+    {
+      "id": "unique_shadowbane_circlet",
+      "name": "Shadowbane Circlet",
+      "category": "accessories",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the tears of a dying angel, it repels the whispers of darkness.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "ring"
+    },
+    {
+      "id": "unique_whisperwind_treads",
+      "name": "Whisperwind Treads",
+      "category": "armor",
+      "price": 350,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Woven from shadows of the first thieves who died mapping these cursed halls.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "slot": "boots"
+    },
+    {
+      "id": "unique_whisperwind_s_last_song",
+      "name": "Whisperwind's Last Song",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This ethereal bow sang its final melody as its elven master fell to shadow wraiths.",
+      "damage": "1d8+2",
+      "weapon_type": "ranged",
+      "range": 70,
+      "classes": [
+        "fighter",
+        "thief"
+      ],
+      "two_handed": true
+    },
+    {
+      "id": "unique_whisperwind_scepter",
+      "name": "Whisperwind Scepter",
+      "category": "weapons",
+      "price": 300,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Carved from the spine of an ancient lich, it channels the screams of the eternally damned.",
+      "damage": "1d4+3",
+      "weapon_type": "melee",
+      "classes": [
+        "mage"
+      ],
+      "attack_mod": 2
+    },
+    {
+      "id": "unique_soulforge_medallion",
+      "name": "Soulforge Medallion",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the crystallized screams of a thousand tortured souls in Dreagoth's depths.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "amulet"
+    },
+    {
+      "id": "unique_aegis_of_the_last_dawn",
+      "name": "Aegis of the Last Dawn",
+      "category": "armor",
+      "price": 450,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "Forged from the final rays of sunlight before Dreagoth's eternal darkness consumed all.",
+      "classes": [
+        "fighter",
+        "cleric"
+      ],
+      "ac_bonus": 3,
+      "slot": "shield"
+    },
+    {
+      "id": "unique_dreagoth_s_dominion",
+      "name": "Dreagoth's Dominion",
+      "category": "accessories",
+      "price": 500,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This cursed ring binds the wearer's soul to the dungeon's malevolent will.",
+      "classes": [
+        "fighter",
+        "mage",
+        "thief",
+        "cleric"
+      ],
+      "ac_bonus": 2,
+      "attack_mod": 1,
+      "slot": "ring"
+    },
+    {
+      "id": "unique_soulrender_s_benediction",
+      "name": "Soulrender's Benediction",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This blessed flail once belonged to a zealot who cleansed the undead halls with holy fury.",
+      "damage": "1d6+3",
+      "weapon_type": "melee",
+      "classes": [
+        "cleric"
+      ]
+    },
+    {
+      "id": "unique_soulrender_s_lament",
+      "name": "Soulrender's Lament",
+      "category": "weapons",
+      "price": 400,
+      "currency": "G",
+      "rarity": "unique",
+      "lore": "This cursed blade weeps crimson tears for every soul it has claimed in Dreagoth's depths.",
+      "damage": "1d8+3",
+      "weapon_type": "melee",
+      "classes": [
+        "fighter"
+      ]
     }
   ]
 }

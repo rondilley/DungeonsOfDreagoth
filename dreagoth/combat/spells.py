@@ -11,29 +11,59 @@ DATA_DIR = Path(__file__).parent.parent / "data"
 # Spell slots per character level (index 0 = level 1).
 # Each row is [level_1_slots, level_2_slots, level_3_slots].
 MAGE_SLOTS: list[list[int]] = [
-    [1, 0, 0],  # char level 1
-    [2, 0, 0],  # char level 2
-    [2, 1, 0],  # char level 3
-    [3, 1, 0],  # char level 4
-    [3, 2, 0],  # char level 5
-    [3, 2, 1],  # char level 6
-    [4, 2, 1],  # char level 7
-    [4, 3, 1],  # char level 8
-    [4, 3, 2],  # char level 9
+    [1, 0, 0],  # char level  1
+    [2, 0, 0],  # char level  2
+    [2, 1, 0],  # char level  3
+    [3, 1, 0],  # char level  4
+    [3, 2, 0],  # char level  5
+    [3, 2, 1],  # char level  6
+    [4, 2, 1],  # char level  7
+    [4, 3, 1],  # char level  8
+    [4, 3, 2],  # char level  9
     [4, 3, 2],  # char level 10
+    [4, 3, 3],  # char level 11
+    [4, 4, 3],  # char level 12
+    [5, 4, 3],  # char level 13
+    [5, 4, 3],  # char level 14
+    [5, 4, 4],  # char level 15
+    [5, 5, 4],  # char level 16
+    [5, 5, 4],  # char level 17
+    [6, 5, 4],  # char level 18
+    [6, 5, 5],  # char level 19
+    [6, 5, 5],  # char level 20
+    [6, 6, 5],  # char level 21
+    [6, 6, 5],  # char level 22
+    [7, 6, 5],  # char level 23
+    [7, 6, 6],  # char level 24
+    [7, 6, 6],  # char level 25
 ]
 
 CLERIC_SLOTS: list[list[int]] = [
-    [1, 0, 0],  # char level 1
-    [2, 0, 0],  # char level 2
-    [2, 1, 0],  # char level 3
-    [2, 1, 0],  # char level 4
-    [3, 2, 0],  # char level 5
-    [3, 2, 1],  # char level 6
-    [3, 2, 1],  # char level 7
-    [3, 3, 1],  # char level 8
-    [4, 3, 2],  # char level 9
+    [1, 0, 0],  # char level  1
+    [2, 0, 0],  # char level  2
+    [2, 1, 0],  # char level  3
+    [2, 1, 0],  # char level  4
+    [3, 2, 0],  # char level  5
+    [3, 2, 1],  # char level  6
+    [3, 2, 1],  # char level  7
+    [3, 3, 1],  # char level  8
+    [4, 3, 2],  # char level  9
     [4, 3, 2],  # char level 10
+    [4, 3, 3],  # char level 11
+    [4, 4, 3],  # char level 12
+    [4, 4, 3],  # char level 13
+    [5, 4, 3],  # char level 14
+    [5, 4, 4],  # char level 15
+    [5, 5, 4],  # char level 16
+    [5, 5, 4],  # char level 17
+    [5, 5, 4],  # char level 18
+    [6, 5, 5],  # char level 19
+    [6, 5, 5],  # char level 20
+    [6, 5, 5],  # char level 21
+    [6, 6, 5],  # char level 22
+    [6, 6, 5],  # char level 23
+    [6, 6, 6],  # char level 24
+    [7, 6, 6],  # char level 25
 ]
 
 

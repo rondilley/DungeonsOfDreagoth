@@ -68,19 +68,29 @@
   "provisions": [
     {"id": "rations_iron", "name": "Iron Rations", "category": "provisions", "price": 5, "currency": "G", "consumable": true, "regen_dice": "1d2", "regen_turns": 10},
     {"id": "rations_standard", "name": "Standard Rations", "category": "provisions", "price": 3, "currency": "G", "consumable": true, "regen_dice": "1d2", "regen_turns": 6},
-    {"id": "torch", "name": "Torch", "category": "provisions", "price": 1, "currency": "C"},
+    {"id": "torch", "name": "Torch", "category": "provisions", "price": 1, "currency": "C", "slot": "shield", "light_radius": 3, "light_duration": 500},
     {"id": "oil_flask", "name": "Oil Flask", "category": "provisions", "price": 1, "currency": "G"},
     {"id": "ale_pint", "name": "Ale, pint", "category": "provisions", "price": 1, "currency": "S", "consumable": true, "regen_dice": "1d1", "regen_turns": 4}
   ],
   "misc": [
     {"id": "backpack", "name": "Leather Backpack", "category": "misc", "price": 2, "currency": "G"},
     {"id": "rope", "name": "Rope, 50'", "category": "misc", "price": 4, "currency": "S"},
-    {"id": "lantern", "name": "Hooded Lantern", "category": "misc", "price": 7, "currency": "G"},
+    {"id": "lantern", "name": "Hooded Lantern", "category": "misc", "price": 7, "currency": "G", "slot": "shield", "light_radius": 4, "light_duration": 1000},
     {"id": "tinderbox", "name": "Tinder Box", "category": "misc", "price": 1, "currency": "G"},
     {"id": "thieves_tools", "name": "Thieves' Tools", "category": "misc", "price": 30, "currency": "G"},
     {"id": "holy_water", "name": "Holy Water, vial", "category": "misc", "price": 25, "currency": "G"},
     {"id": "holy_symbol_wood", "name": "Holy Symbol, wooden", "category": "misc", "price": 7, "currency": "S"},
     {"id": "spike_iron", "name": "Iron Spike", "category": "misc", "price": 1, "currency": "C"}
+  ],
+  "scrolls": [
+    {"id": "scroll_knock", "name": "Scroll of Knock", "category": "scrolls", "price": 50, "currency": "G", "consumable": true, "spell_id": "knock"},
+    {"id": "scroll_light", "name": "Scroll of Light", "category": "scrolls", "price": 25, "currency": "G", "consumable": true, "spell_id": "light"},
+    {"id": "scroll_magic_missile", "name": "Scroll of Magic Missile", "category": "scrolls", "price": 30, "currency": "G", "consumable": true, "spell_id": "magic_missile"},
+    {"id": "scroll_fireball", "name": "Scroll of Fireball", "category": "scrolls", "price": 100, "currency": "G", "consumable": true, "spell_id": "fireball"},
+    {"id": "scroll_cure_wounds", "name": "Scroll of Cure Wounds", "category": "scrolls", "price": 30, "currency": "G", "consumable": true, "spell_id": "cure_wounds"},
+    {"id": "scroll_dispel_magic", "name": "Scroll of Dispel Magic", "category": "scrolls", "price": 100, "currency": "G", "consumable": true, "spell_id": "dispel_magic"},
+    {"id": "scroll_heal", "name": "Scroll of Heal", "category": "scrolls", "price": 60, "currency": "G", "consumable": true, "spell_id": "heal"},
+    {"id": "scroll_shield", "name": "Scroll of Shield", "category": "scrolls", "price": 40, "currency": "G", "consumable": true, "spell_id": "shield"}
   ],
   "consumables": [
     {"id": "bandages", "name": "Bandages", "category": "consumables", "price": 2, "currency": "G", "consumable": true, "heal_dice": "1d4"},

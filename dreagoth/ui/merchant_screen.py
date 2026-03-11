@@ -127,14 +127,10 @@ class MerchantScreen(ModalScreen[None]):
             item = stock[index]
             if self._player.gold >= item.gold_value:
                 self._player.gold -= item.gold_value
-                self._player.inventory.append(Item(
-                    id=item.id, name=item.name, category=item.category,
-                    price=item.price, currency=item.currency,
-                    damage=item.damage, weapon_type=item.weapon_type,
-                    range=item.range, classes=list(item.classes),
-                    ac_bonus=item.ac_bonus, slot=item.slot,
-                    consumable=item.consumable, heal_dice=item.heal_dice,
-                ))
+                # Use the canonical item from equipment_db so all fields
+                # (light_radius, two_handed, regen, etc.) are preserved
+                canonical = equipment_db.get(item.id)
+                self._player.inventory.append(canonical or item)
         self._refresh_items(restore_index=cursor)
 
     def _sell(self, index: int, cursor: int = 0) -> None:
